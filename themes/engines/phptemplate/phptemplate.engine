@@ -372,19 +372,17 @@ function phptemplate_box($title, $content, $region = 'main') {
  * @param $variables
  *   A sequential array of variables passed to the theme function.
  * @param $suggestions
- *   An array of suggested template files to use.
+ *   An array of suggested template files to use. This may include a path when
+ *   the suggested template is contained within a sub-directory of the theme.
+ *   They are set from _phptemplate_variables() or the theming hook invoking
+ *   _phptemplate_callback().
  */
 function _phptemplate_default($hook, $variables, $suggestions = array(), $extension = '.tpl.php') {
   global $theme_engine;
 
-  // Remove slashes or null to prevent files from being included from
-  // an unexpected location (especially on Windows servers).
-  $extension = str_replace(array("/", "\\", "\0"), '', $extension);
-
   // Loop through any suggestions in FIFO order.
   $suggestions = array_reverse($suggestions);
   foreach ($suggestions as $suggestion) {
-    $suggestion = str_replace(array("/", "\\", "\0"), '', $suggestion);
     if (!empty($suggestion) && file_exists(path_to_theme() .'/'. $suggestion . $extension)) {
       $file = path_to_theme() .'/'. $suggestion . $extension;
       break;
@@ -420,5 +418,3 @@ function _phptemplate_render($file, $variables) {
   ob_end_clean();                  // End buffering and discard
   return $contents;                // Return the contents
 }
-
-?>
