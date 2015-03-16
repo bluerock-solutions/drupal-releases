@@ -136,7 +136,7 @@ function conf_path() {
  */
 function drupal_unset_globals() {
   if (ini_get('register_globals')) {
-    $allowed = array('_ENV' => 1, '_GET' => 1, '_POST' => 1, '_COOKIE' => 1, '_FILES' => 1, '_SERVER' => 1, '_REQUEST' => 1, 'access_check' => 1);
+    $allowed = array('_ENV' => 1, '_GET' => 1, '_POST' => 1, '_COOKIE' => 1, '_FILES' => 1, '_SERVER' => 1, '_REQUEST' => 1, 'access_check' => 1, 'GLOBALS' => 1);
     foreach ($GLOBALS as $key => $value) {
       if (!isset($allowed[$key])) {
         unset($GLOBALS[$key]);
@@ -156,7 +156,10 @@ function conf_init() {
   if (isset($base_url)) {
     // Parse fixed base URL from settings.php.
     $parts = parse_url($base_url);
-    $base_path = isset($parts['path']) ? $parts['path'] . '/' : '/';
+    if (!isset($parts['path'])) {
+      $parts['path'] = '';
+    }
+    $base_path = $parts['path'] . '/';
     // Build $base_root (everything until first slash after "scheme://").
     $base_root = substr($base_url, 0, strlen($base_url) - strlen($parts['path']));
   }

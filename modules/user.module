@@ -88,10 +88,11 @@ function user_load($array = array()) {
 }
 
 /**
- * Save changes to a user account.
+ * Save changes to a user account or add a new user.
  *
  * @param $account
- *   The $user object for the user to modify.
+ *   The $user object for the user to modify or add. If $user->uid is
+ *   omitted, a new user will be added.
  *
  * @param $array
  *   An array of fields and values to save. For example array('name' => 'My name');
@@ -582,7 +583,7 @@ function user_block($op = 'list', $delta = 0, $edit = array()) {
       case 3:
         if (user_access('access content')) {
           // Count users with activity in the past defined period.
-          $time_period = variable_get('user_block_seconds_online', 2700);
+          $time_period = variable_get('user_block_seconds_online', 900);
 
           // Perform database queries to gather online user lists.
           $guests = db_fetch_object(db_query('SELECT COUNT(sid) AS count FROM {sessions} WHERE timestamp >= %d AND uid = 0', time() - $time_period));
@@ -800,7 +801,7 @@ function user_menu($may_cache) {
           'type' => MENU_CALLBACK);
 
         if (arg(2) == 'edit') {
-          if (($categories = _user_categories()) && (count($categories) > 1)) {
+          if (($categories = _user_categories($account)) && (count($categories) > 1)) {
             foreach ($categories as $key => $category) {
               $items[] = array(
                 'path' => 'user/'. arg(1) .'/edit/'. $category['name'],
@@ -903,7 +904,7 @@ function user_login_validate($form_id, $form_values) {
   if ($form_values['name']) {
     if (user_is_blocked($form_values['name'])) {
       // blocked in user administration
-      form_set_error('login', t('The username %name has been blocked.', array('%name' => theme('placeholder', $form_values['name']))));
+      form_set_error('login', t('The username %name has not been activated or is blocked.', array('%name' => theme('placeholder', $form_values['name']))));
     }
     else if (drupal_is_denied('user', $form_values['name'])) {
       // denied by access controls
@@ -951,7 +952,7 @@ function user_authenticate($name, $pass) {
   // Try to log in the user locally. Don't set $user unless successful.
   if ($account = user_load(array('name' => $name, 'pass' => $pass, 'status' => 1))) {
     $user = $account;
-  };
+  }
 
   // Strip name and server from ID:
   if ($server = strrchr($name, '@')) {
@@ -1410,7 +1411,7 @@ function user_edit($category = 'account') {
   if (user_access('administer users')) {
     $form['delete'] = array('#type' => 'submit', '#value' => t('Delete'), '#weight' => 31);
   }
-  $form['#attributes'] = array('enctype' => 'multipart/form-data');
+  $form['#attributes']['enctype'] = 'multipart/form-data';
 
   drupal_set_title($account->name);
   return drupal_get_form('user_edit', $form);
@@ -1443,7 +1444,7 @@ function user_view($uid = 0) {
   global $user;
 
   $account = user_load(array('uid' => $uid));
-  if ($account === FALSE) {
+  if ($account === FALSE || ($account->access == 0 && !user_access('administer users'))) {
     return drupal_not_found();
   }
   // Retrieve and merge all profile fields:
@@ -1680,11 +1681,16 @@ function user_admin_access() {
 }
 
 /**
- * Use this API to retreive an array of all available roles
- * @param $membersonly Set this to TRUE to omit the special role 'anonymous'.
- * @param $permission A string containing a permission. If set, only roles that have that permission are returned.
- * @return An associative array, with the role id as key and the role name as value.
- **/
+ * Retrieve an array of roles matching specified conditions.
+ *
+ * @param $membersonly
+ *   Set this to TRUE to exclude the 'anonymous' role.
+ * @param $permission
+ *   A string containing a permission. If set, only roles containing that permission are returned.
+ *
+ * @return
+ *   An associative array with the role id as the key and the role name as value.
+ */
 function user_roles($membersonly = 0, $permission = 0) {
   $roles = array();
 
@@ -2055,11 +2061,11 @@ function user_help_page() {
 /**
  * Retrieve a list of all user setting/information categories and sort them by weight.
  */
-function _user_categories() {
+function _user_categories($account) {
   $categories = array();
 
   foreach (module_list() as $module) {
-    if ($data = module_invoke($module, 'user', 'categories', NULL, NULL, '')) {
+    if ($data = module_invoke($module, 'user', 'categories', NULL, $account, '')) {
       $categories = array_merge($data, $categories);
     }
   }

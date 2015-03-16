@@ -288,7 +288,7 @@ function system_update_119() {
 function system_update_120() {
   $ret = array();
 
-  // Rewrite old URL aliases.  Works for both PostgreSQL and MySQL
+  // Rewrite old URL aliases. Works for both PostgreSQL and MySQL
   $result = db_query("SELECT pid, src FROM {url_alias} WHERE src LIKE 'blog/%%'");
   while ($alias = db_fetch_object($result)) {
     list(, $page, $op, $uid) = explode('/', $alias->src);
@@ -928,13 +928,13 @@ function system_update_151() {
   $menus = array(0 => array('links_var' => 'primary_links',
                             'toggle_var' => 'toggle_primary_links',
                             'more_var' => 'primary_links_more',
-                            'menu_name' => t('Primary links'),
+                            'menu_name' => 'Primary links',
                             'menu_var' => 'menu_primary_menu',
                             'pid' => 0),
                  1 => array('links_var' => 'secondary_links',
                             'toggle_var' => 'toggle_secondary_links',
                             'more_var' => 'secondary_links_more',
-                            'menu_name' => t('Secondary links'),
+                            'menu_name' => 'Secondary links',
                             'menu_var' => 'menu_secondary_menu',
                             'pid' => 0));
 
@@ -992,7 +992,7 @@ function system_update_151() {
     }
 
     // Set menu_primary_menu and menu_primary_menu variables if links were
-    // imported.  If the user had links but the toggle display was off, they
+    // imported. If the user had links but the toggle display was off, they
     // will need to disable the new links manually in admins/settings/menu.
     if ($num_inserted == 0) {
       variable_set($menus[$loop]['menu_var'], 0);
@@ -1139,90 +1139,96 @@ function system_update_158() {
 function system_update_159() {
   $ret = array();
 
-  $result = db_query_range("SELECT * FROM {old_revisions} WHERE done = 0 AND type IN ('page', 'story', 'poll', 'book', 'forum', 'blog')", 0, 20);
+  $result = db_query_range("SELECT * FROM {old_revisions} WHERE done = 0 AND type IN ('page', 'story', 'poll', 'book', 'forum', 'blog') ORDER BY nid DESC", 0, 20);
 
-  $vid = db_next_id('{node_revisions}_vid');
-  while ($node = db_fetch_object($result)) {
-    $revisions = unserialize($node->revisions);
-    if (isset($revisions) && is_array($revisions) && count($revisions) > 0) {
-      $revisions_query = array();
-      $revisions_args = array();
-      $book_query = array();
-      $book_args = array();
-      $forum_query = array();
-      $forum_args = array();
-      foreach ($revisions as $version) {
-        $revision = array();
-        foreach ($version['node'] as $node_field => $node_value) {
-          $revision[$node_field] = $node_value;
+  if (db_num_rows($result)) {
+    $vid = db_next_id('{node_revisions}_vid');
+    while ($node = db_fetch_object($result)) {
+      $revisions = unserialize($node->revisions);
+      if (isset($revisions) && is_array($revisions) && count($revisions) > 0) {
+        $revisions_query = array();
+        $revisions_args = array();
+        $book_query = array();
+        $book_args = array();
+        $forum_query = array();
+        $forum_args = array();
+        foreach ($revisions as $version) {
+          $revision = array();
+          foreach ($version['node'] as $node_field => $node_value) {
+            $revision[$node_field] = $node_value;
+          }
+          $revision['uid'] = $version['uid'];
+          $revision['timestamp'] = $version['timestamp'];
+          $vid++;
+          $revisions_query[] = "(%d, %d, %d, '%s', '%s', '%s', '%s', %d, %d)";
+          $revisions_args = array_merge($revisions_args, array($node->nid, $vid, $revision['uid'], $revision['title'], $revision['body'], $revision['teaser'], $revision['log'], $revision['timestamp'], $revision['format']));
+          switch ($node->type) {
+            case 'forum':
+              if ($revision['tid'] > 0) {
+                $forum_query[] = "(%d, %d, %d)";
+                $forum_args = array_merge($forum_args, array($vid, $node->nid, $revision['tid']));
+              }
+              break;
+
+            case 'book':
+              $book_query[] = "(%d, %d, %d, %d)";
+              $book_args = array_merge($book_args, array($vid, $node->nid, $revision['parent'], $revision['weight']));
+              break;
+          }
         }
-        $revision['uid'] = $version['uid'];
-        $revision['timestamp'] = $version['timestamp'];
-        $vid++;
-        $revisions_query[] = "(%d, %d, %d, '%s', '%s', '%s', '%s', %d, %d)";
-        $revisions_args = array_merge($revisions_args, array($node->nid, $vid, $revision['uid'], $revision['title'], $revision['body'], $revision['teaser'], $revision['log'], $revision['timestamp'], $revision['format']));
+        if (count($revisions_query)) {
+          $revision_status = db_query("INSERT INTO {node_revisions} (nid, vid, uid, title, body, teaser, log, timestamp, format) VALUES ". implode(',', $revisions_query), $revisions_args);
+        }
+        if (count($forum_query)) {
+          $forum_status = db_query("INSERT INTO {forum} (vid, nid, tid) VALUES ". implode(',', $forum_query), $forum_args);
+        }
+        if (count($book_query)) {
+          $book_status = db_query("INSERT INTO {book} (vid, nid, parent, weight) VALUES ". implode(',', $book_query), $book_args);
+        }
+        $delete = FALSE;
         switch ($node->type) {
           case 'forum':
-            if ($revision['tid'] > 0) {
-              $forum_query[] = "(%d, %d, %d)";
-              $forum_args = array_merge($forum_args, array($vid, $node->nid, $revision['tid']));
+            if ($forum_status && $revision_status) {
+              $delete = TRUE;
             }
             break;
 
           case 'book':
-            $book_query[] = "(%d, %d, %d, %d)";
-            $book_args = array_merge($book_args, array($vid, $node->nid, $revision['parent'], $revision['weight']));
+            if ($book_status && $revision_status) {
+              $delete = TRUE;
+            }
+            break;
+
+          default:
+            if ($revision_status) {
+              $delete = TRUE;
+            }
+            break;
+        }
+
+        if ($delete) {
+          db_query('DELETE FROM {old_revisions} WHERE nid = %d', $node->nid);
+        }
+        else {
+          db_query('UPDATE {old_revisions} SET done = 1 WHERE nid = %d', $node->nid);
+        }
+
+        switch ($GLOBALS['db_type']) {
+          case 'mysqli':
+          case 'mysql':
+            $ret[] = update_sql("UPDATE {sequences} SET id = $vid WHERE name = '{node_revisions}_vid'");
+            break;
+
+          case 'pgsql':
+            $ret[] = update_sql("SELECT setval('{node_revisions}_vid_seq', $vid)");
             break;
         }
       }
-      if (count($revisions_query)) {
-        $revision_status = db_query("INSERT INTO {node_revisions} (nid, vid, uid, title, body, teaser, log, timestamp, format) VALUES ". implode(',', $revisions_query), $revisions_args);
-      }
-      if (count($forum_query)) {
-        $forum_status = db_query("INSERT INTO {forum} (vid, nid, tid) VALUES ". implode(',', $forum_query), $forum_args);
-      }
-      if (count($book_query)) {
-        $book_status = db_query("INSERT INTO {book} (vid, nid, parent, weight) VALUES ". implode(',', $book_query), $book_args);
-      }
-      $delete = FALSE;
-      switch ($node->type) {
-        case 'forum':
-          if ($forum_status && $revision_status) {
-            $delete = TRUE;
-          }
-          break;
-
-        case 'book':
-          if ($book_status && $revision_status) {
-            $delete = TRUE;
-          }
-          break;
-
-        default:
-          if ($revision_status) {
-            $delete = TRUE;
-          }
-          break;
-      }
-
-      if ($delete) {
-        db_query('DELETE FROM {old_revisions} WHERE nid = %d', $node->nid);
-      }
       else {
         db_query('UPDATE {old_revisions} SET done = 1 WHERE nid = %d', $node->nid);
+        watchdog('php', "Recovering old revisions for node $node->nid failed.", WATCHDOG_WARNING);
       }
     }
-  }
-
-  switch ($GLOBALS['db_type']) {
-    case 'mysqli':
-    case 'mysql':
-      $ret[] = update_sql("UPDATE {sequences} SET id = $vid WHERE name = '{node_revisions}_vid'");
-      break;
-
-    case 'pgsql':
-      $ret[] = update_sql("SELECT setval('{node_revisions}_vid_seq', $vid)");
-      break;
   }
 
   if (db_num_rows($result) < 20) {
@@ -1679,7 +1685,7 @@ function system_update_173() {
     $ret[] = update_sql("DROP TABLE {files_backup}");
   }
   else {
-    drupal_set_message(t('Normalizing files table failed. A backup of the original table called {files_backup} remains in your database.'));
+    drupal_set_message('Normalizing files table failed. A backup of the original table called {files_backup} remains in your database.');
   }
 
   return $ret;
@@ -1953,4 +1959,57 @@ function system_update_179() {
   }
 
   return array();
+}
+
+function system_update_180() {
+  $ret = array();
+
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {node} DROP PRIMARY KEY");
+      $ret[] = update_sql("ALTER TABLE {node} ADD PRIMARY KEY (nid, vid)");
+      $ret[] = update_sql("ALTER TABLE {node} ADD UNIQUE (vid)");
+      $ret[] = update_sql("ALTER TABLE {node} ADD INDEX (nid)");
+
+      $ret[] = update_sql("ALTER TABLE {node_counter} CHANGE nid nid INT(10) NOT NULL DEFAULT '0'");
+      break;
+    case 'pgsql':
+      $ret[] = update_sql("ALTER TABLE {node} DROP CONSTRAINT {node}_pkey"); // Change PK
+      $ret[] = update_sql("ALTER TABLE {node} ADD PRIMARY KEY (nid, vid)");      
+      $ret[] = update_sql('DROP INDEX {node}_vid_idx'); // Change normal index to UNIQUE index
+      $ret[] = update_sql('CREATE UNIQUE INDEX {node}_vid_idx ON {node}(vid)');
+      $ret[] = update_sql('CREATE INDEX {node}_nid_idx ON {node}(nid)'); // Add index on nid      
+      break;
+  }
+
+  return $ret;
+}
+
+function system_update_181() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {profile_fields} ADD autocomplete TINYINT(1) NOT NULL AFTER visibility ;");
+      break;
+    case 'pgsql':
+      db_add_column($ret, 'profile_fields', 'autocomplete', 'smallint', array('not null' => TRUE, 'default' => 0));
+      break;
+  }
+  return $ret;
+}
+
+/**
+ * The lid field in pgSQL should not be UNIQUE, but an INDEX.
+ */
+function system_update_182() {
+  $ret = array();
+
+  if ($GLOBALS['db_type'] == 'pgsql') {
+    $ret[] = update_sql('ALTER TABLE {locales_target} DROP CONSTRAINT {locales_target}_lid_key');
+    $ret[] = update_sql('CREATE INDEX {locales_target}_lid_idx ON {locales_target} (lid)');
+  }
+
+  return $ret;
 }

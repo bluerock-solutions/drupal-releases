@@ -437,9 +437,7 @@ function comment_configure() {
  *
  * Authenticated users can edit their comments as long they have not been
  * replied to. This prevents people from changing or revising their
- * statements based on the replies their posts got. Furthermore, users
- * can't reply to their own comments and are encouraged instead to extend
- * their original comment.
+ * statements based on the replies to their posts.
  */
 function comment_access($op, $comment) {
   global $user;
@@ -1159,11 +1157,6 @@ function comment_validate($edit) {
   }
   if (isset($edit['author']) && !$account = user_load(array('name' => $edit['author']))) {
     form_set_error('author', t('You have to specify a valid author.'));
-  }
-
-  // Validate the comment's body.
-  if (trim($edit['comment']) == '') {
-    form_set_error('comment', t('The body of your comment is empty.'));
   }
 
   // Check validity of name, mail and homepage (if given)

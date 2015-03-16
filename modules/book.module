@@ -424,7 +424,7 @@ function book_next($node) {
   }
 
   // No direct child: get next for this level or any parent in this book.
-  $path[] = book_location($node); // Path to top-level node including this one.
+  $path = book_location($node); // Path to top-level node including this one.
   $path[] = $node;
 
   while (($leaf = array_pop($path)) && count($path)) {
@@ -676,7 +676,7 @@ function book_export($type = 'html', $nid = 0) {
     print call_user_func($export_function, $nid, $depth);
   }
   else {
-    drupal_set_message('Unknown export format');
+    drupal_set_message(t('Unknown export format.'));
     drupal_not_found();
   }
 }
@@ -881,12 +881,17 @@ function theme_book_admin_table($form) {
   $rows = array();
   foreach (element_children($form) as $key) {
     $nid = $form[$key]['nid']['#value'];
+    $pid = $form[0]['nid']['#value'];
+    if ($pid == $nid) {
+      // Don't return to the parent book page if it is deleted.
+      $pid = '';
+    }
     $rows[] = array(
       '<div style="padding-left: '. (25 * $form[$key]['depth']['#value']) .'px;">'. form_render($form[$key]['title']) .'</div>',
       form_render($form[$key]['weight']),
       l(t('view'), 'node/'. $nid),
       l(t('edit'), 'node/'. $nid .'/edit'),
-      l(t('delete'), 'node/'. $nid .'/delete')
+      l(t('delete'), 'node/'. $nid .'/delete', NULL, 'destination=admin/node/book/'. (arg(3) == 'orphan' ? 'orphan' : $pid)),
     );
   }
 

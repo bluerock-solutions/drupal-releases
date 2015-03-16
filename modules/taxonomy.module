@@ -107,8 +107,8 @@ function taxonomy_menu($may_cache) {
 
       $items[] = array('path' => 'admin/taxonomy/' . arg(2) . '/add/term',
         'title' => t('add term'),
-        'callback' => 'taxonomy_admin_term_add',
-        'callback arguments' => array(arg(2)),
+        'callback' => 'taxonomy_form_term',
+        'callback arguments' => array(array('vid' => arg(2))),
         'access' => user_access('administer taxonomy'),
         'type' => MENU_LOCAL_TASK);
     }
@@ -122,46 +122,26 @@ function taxonomy_menu($may_cache) {
  */
 function taxonomy_overview_vocabularies() {
   $vocabularies = taxonomy_get_vocabularies();
+  $rows = array();
   foreach ($vocabularies as $vocabulary) {
     $types = array();
     foreach ($vocabulary->nodes as $type) {
       $node_type = node_get_name($type);
       $types[] = $node_type ? $node_type : $type;
     }
-    $form[$vocabulary->vid]['name'] = array('#value' => check_plain($vocabulary->name));
-    $form[$vocabulary->vid]['type'] = array('#value' => implode(', ', $types));
-    $form[$vocabulary->vid]['edit'] = array('#value' => l(t('edit vocabulary'), "admin/taxonomy/edit/vocabulary/$vocabulary->vid"));
-    $form[$vocabulary->vid]['list'] = array('#value' => l(t('list terms'), "admin/taxonomy/$vocabulary->vid"));
-    $form[$vocabulary->vid]['add'] = array('#value' => l(t('add terms'), "admin/taxonomy/$vocabulary->vid/add/term"));
+    $rows[] = array('name' => check_plain($vocabulary->name),
+      'type' => implode(', ', $types),
+      'edit' => l(t('edit vocabulary'), "admin/taxonomy/edit/vocabulary/$vocabulary->vid"),
+      'list' => l(t('list terms'), "admin/taxonomy/$vocabulary->vid"),
+      'add' => l(t('add terms'), "admin/taxonomy/$vocabulary->vid/add/term")
+    );
   }
-
-  return drupal_get_form('taxonomy_overview_vocabularies', $form);
-}
-
-/**
- * Theme overview vocabularies.
- */
-function theme_taxonomy_overview_vocabularies($form) {
-  $rows = array();
-  foreach (element_children($form) as $key) {
-    if (isset($form[$key]['name'])) {
-      $row = array();
-      $row[] = form_render($form[$key]['name']);
-      $row[] = form_render($form[$key]['type']);
-      $row[] = form_render($form[$key]['edit']);
-      $row[] = form_render($form[$key]['list']);
-      $row[] = form_render($form[$key]['add']);
-      $rows[] = $row;
-    }
-  }
-  if (!$rows) {
+  if (empty($rows)) {
     $rows[] = array(array('data' => t('No categories available.'), 'colspan' => '5', 'class' => 'message'));
   }
   $header = array(t('Name'), t('Type'), array('data' => t('Operations'), 'colspan' => '3'));
 
-  $output = theme('table', $header, $rows, array('id' => 'taxonomy'));
-  $output .= form_render($form);
-  return $output;
+  return theme('table', $header, $rows, array('id' => 'taxonomy'));
 }
 
 /**
@@ -399,7 +379,7 @@ function taxonomy_form_term($edit = array()) {
   $form['weight'] = array('#type' => 'weight', '#title' => t('Weight'), '#default_value' => $edit['weight'], '#description' => t('In listings, the heavier terms will sink and the lighter terms will be positioned nearer the top.'));
 
   // Add extra term form elements.
-  $extra = module_invoke_all('taxonomy', 'term', 'vocabulary');
+  $extra = module_invoke_all('taxonomy', 'form', 'term');
   if (is_array($extra)) {
     foreach ($extra as $key => $element) {
       $extra[$key]['#weight'] = isset($extra[$key]['#weight']) ? $extra[$key]['#weight'] : -18;
@@ -656,7 +636,7 @@ function taxonomy_form_alter($form_id, &$form) {
           $help = $vocabulary->help;
         }
         else {
-          $help = t('A comma-separated list of terms describing this content.  Example: funny, bungie jumping, "Company, Inc.".');
+          $help = t('A comma-separated list of terms describing this content.  Example: funny, bungee jumping, "Company, Inc.".');
         }
         $form['taxonomy']['tags'][$vocabulary->vid] = array('#type' => 'textfield',
           '#title' => $vocabulary->name,
@@ -751,8 +731,9 @@ function taxonomy_node_save($nid, $terms) {
       // this, "somecmpany, llc", "and ""this"" w,o.rks", foo bar
       $regexp = '%(?:^|,\ *)("(?>[^"]*)(?>""[^"]* )*"|(?: [^",]*))%x';
       preg_match_all($regexp, $vid_value, $matches);
-      $typed_terms = $matches[1];
+      $typed_terms = array_unique($matches[1]);
 
+      $inserted = array();
       foreach ($typed_terms as $typed_term) {
         // If a user has escaped a term (to demonstrate that it is a group,
         // or includes a comma or quote character), we remove the escape
@@ -777,7 +758,11 @@ function taxonomy_node_save($nid, $terms) {
           $typed_term_tid = $edit['tid'];
         }
 
-        db_query('INSERT INTO {term_node} (nid, tid) VALUES (%d, %d)', $nid, $typed_term_tid);
+        // defend against duplicate, different cased tags
+        if (!isset($inserted[$typed_term_tid])) {
+          db_query('INSERT INTO {term_node} (nid, tid) VALUES (%d, %d)', $nid, $typed_term_tid);
+          $inserted[$typed_term_tid] = TRUE;
+        }
       }
     }
   }
@@ -1009,7 +994,7 @@ function _taxonomy_term_children($tid) {
  *   An array of matching term objects.
  */
 function taxonomy_get_term_by_name($name) {
-  $db_result = db_query(db_rewrite_sql("SELECT t.tid, t.* FROM {term_data} t WHERE LOWER('%s') LIKE LOWER(name)", 't', 'tid'), trim($name));
+  $db_result = db_query(db_rewrite_sql("SELECT t.tid, t.* FROM {term_data} t WHERE LOWER('%s') LIKE LOWER(t.name)", 't', 'tid'), trim($name));
   $result = array();
   while ($term = db_fetch_object($db_result)) {
     $result[] = $term;
@@ -1298,13 +1283,6 @@ function taxonomy_admin_term_edit($tid = NULL) {
     $term = (array)taxonomy_get_term($tid);
   }
   return taxonomy_form_term($term);
-}
-
-/**
- * Page to add a term to a specific vocabulary.
- */
-function taxonomy_admin_term_add($vid = NULL) {
-  return taxonomy_form_term(array('vid' => arg(2)));
 }
 
 /**

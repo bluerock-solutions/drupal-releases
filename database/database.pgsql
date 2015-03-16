@@ -378,9 +378,9 @@ CREATE TABLE locales_target (
   translation text DEFAULT '' NOT NULL,
   locale varchar(12) NOT NULL default '',
   plid int4 NOT NULL default '0',
-  plural int4 NOT NULL default '0',
-  UNIQUE (lid)
+  plural int4 NOT NULL default '0'
 );
+CREATE INDEX locales_target_lid_idx ON locales_target(lid);
 CREATE INDEX locales_target_locale_idx ON locales_target(locale);
 CREATE INDEX locales_target_plid_idx ON locales_target(plid);
 CREATE INDEX locales_target_plural_idx ON locales_target(plural);
@@ -419,13 +419,14 @@ CREATE TABLE node (
   promote integer NOT NULL default '0',
   moderate integer NOT NULL default '0',
   sticky integer NOT NULL default '0',
-  PRIMARY KEY (nid)
+  PRIMARY KEY (nid, vid)
 );
+CREATE INDEX node_nid_idx ON node(nid);
 CREATE INDEX node_type_idx ON node(type);
 CREATE INDEX node_title_type_idx ON node(title,type);
 CREATE INDEX node_status_idx ON node(status);
 CREATE INDEX node_uid_idx ON node(uid);
-CREATE INDEX node_vid_idx ON node(vid);
+CREATE UNIQUE INDEX node_vid_idx ON node(vid);
 CREATE INDEX node_moderate_idx ON node (moderate);
 CREATE INDEX node_promote_status_idx ON node (promote, status);
 CREATE INDEX node_created_idx ON node(created);
@@ -482,6 +483,7 @@ CREATE TABLE profile_fields (
   required smallint DEFAULT '0' NOT NULL,
   register smallint DEFAULT '0' NOT NULL,
   visibility smallint DEFAULT '0' NOT NULL,
+  autocomplete smallint DEFAULT '0' NOT NULL,
   options text,
   UNIQUE (name),
   PRIMARY KEY (fid)
