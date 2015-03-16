@@ -568,6 +568,17 @@ function node_search($op = 'search', $keys = null) {
       $results = array();
       foreach ($find as $item) {
         $node = node_load(array('nid' => $item));
+
+        // Get node output (filtered and with module-specific fields).
+        if (node_hook($node, 'view')) {
+          node_invoke($node, 'view', false, false);
+        }
+        else {
+          $node = node_prepare($node, false);
+        }
+        // Allow modules to change $node->body before viewing.
+        node_invoke_nodeapi($node, 'view', false, false);
+
         $extra = node_invoke_nodeapi($node, 'search result');
         $results[] = array('link' => url('node/'. $item),
                            'type' => node_invoke($node, 'node_name'),
@@ -575,7 +586,7 @@ function node_search($op = 'search', $keys = null) {
                            'user' => format_name($node),
                            'date' => $node->changed,
                            'extra' => $extra,
-                           'snippet' => search_excerpt($keys, check_output($node->body, $node->format)));
+                           'snippet' => search_excerpt($keys, $node->body));
       }
       return $results;
   }
@@ -1143,7 +1154,7 @@ function node_feed($nodes = 0, $channel = array()) {
 
     // Allow modules to add additional item fields
     $extra = node_invoke_nodeapi($item, 'rss item');
-    $extra = array_merge($extra, array(array('key' => 'pubDate', 'value' =>  date('r', $item->changed))));
+    $extra = array_merge($extra, array(array('key' => 'pubDate', 'value' =>  date('r', $item->created))));
     $items .= format_rss_item($item->title, $link, $item->teaser, $extra);
   }
 
@@ -1205,7 +1216,7 @@ function node_validate($node) {
     }
 
     if (!$node->date) {
-      $node->date = format_date($node->created, 'custom', 'Y-m-d H:i O');
+      $node->date = format_date($node->created, 'custom', 'Y-m-d H:i:s O');
     }
 
     // Validate the "authored by" field.
@@ -1623,7 +1634,7 @@ function node_page_default() {
       <p>The first thing you will need to do is <a href=\"%register\">create the first account</a>. This account will have full administration rights and will allow you to configure your website. Once logged in, you can visit the <a href=\"%admin\">administration section</a> and <a href=\"%config\">set up your site's configuration</a>.</p>
       <p>Drupal comes with various modules, each of which contains a specific piece of functionality. You should visit the <a href=\"%modules\">module list</a> and enable those modules which suit your website's needs.</p>
       <p><a href=\"%themes\">Themes</a> handle the presentation of your website. You can use one of the existing themes, modify them or create your own from scratch.</p>
-      <p>We suggest you look around the administration section and explore the various options Drupal offers you. For more information, you can refer to the <a href=\"%handbook\">Drupal handbook online</a>.</p>", array('%drupal' => 'http://www.drupal.org/', '%register' => url('user/register'), '%admin' => url('admin'), '%config' => url('admin'), '%modules' => url('admin/modules'), '%themes' => url('admin/themes'), '%handbook' => 'http://www.drupal.org/handbook'));
+      <p>We suggest you look around the administration section and explore the various options Drupal offers you. For more information, you can refer to the <a href=\"%handbook\">Drupal handbooks online</a>.</p>", array('%drupal' => 'http://www.drupal.org/', '%register' => url('user/register'), '%admin' => url('admin'), '%config' => url('admin'), '%modules' => url('admin/modules'), '%themes' => url('admin/themes'), '%handbook' => 'http://www.drupal.org/handbooks'));
   }
 
   return $output;
@@ -1666,6 +1677,9 @@ function node_page() {
           drupal_set_title(check_plain($node->title));
           print theme('page', node_show($node, arg(2)));
         }
+        else if (db_result(db_query('SELECT nid FROM {node} WHERE nid = %d', arg(1)))) {
+          drupal_access_denied();
+        }
         else {
           drupal_not_found();
         }
@@ -1680,6 +1694,9 @@ function node_page() {
       if ($nid = node_submit($edit)) {
         if (node_access('view', $edit)) {
           drupal_goto('node/'. $nid);
+        }
+        else if (db_result(db_query('SELECT nid FROM {node} WHERE nid = %d', arg(1)))) {
+          drupal_access_denied();
         }
         else {
           drupal_goto();
