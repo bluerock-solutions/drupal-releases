@@ -455,6 +455,11 @@ function drupal_http_request($url, $headers = array(), $method = 'GET', $data = 
     'Content-Length' => 'Content-Length: '. strlen($data)
   );
 
+  // If the server url has a user then attempt to use basic authentication
+  if (isset($uri['user'])) {
+    $defaults['Authorization'] = 'Authorization: Basic '. base64_encode($uri['user'] . (!empty($uri['pass']) ? ":". $uri['pass'] : ''));
+  }
+
   foreach ($headers as $header => $value) {
     $defaults[$header] = $header .': '. $value;
   }
@@ -1267,7 +1272,7 @@ function drupal_attributes($attributes = array()) {
  *   an HTML string containing a link to the given path.
  */
 function l($text, $path, $attributes = array(), $query = NULL, $fragment = NULL, $absolute = FALSE, $html = FALSE) {
-  if ($path == $_GET['q']) {
+  if (($path == $_GET['q']) || ($path == '<front>' && drupal_is_front_page())) {
     if (isset($attributes['class'])) {
       $attributes['class'] .= ' active';
     }
