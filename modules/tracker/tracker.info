@@ -1,6 +1,8 @@
+; $Id$
 name = Tracker
-description = Enables tracking of recent posts for users.
+description = Enables tracking of recent content for users.
 dependencies[] = comment
-package = Core - optional
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = tracker.test

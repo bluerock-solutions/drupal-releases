@@ -1,5 +1,8 @@
+; $Id$
 name = Contact
 description = Enables the use of both personal and site-wide contact forms.
-package = Core - optional
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = contact.test
+configure = admin/structure/contact

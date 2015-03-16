@@ -1,6 +1,8 @@
+; $Id$
 name = Content translation
 description = Allows content to be translated into different languages.
 dependencies[] = locale
-package = Core - optional
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = translation.test

@@ -1,7 +1,8 @@
 <?php
+// $Id$
 
 /**
- * @file forum-list.tpl.php
+ * @file
  * Default theme implementation to display a list of forums and containers.
  *
  * Available variables:

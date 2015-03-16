@@ -1,5 +1,11 @@
+; $Id$
 name = User
 description = Manages the user registration and login system.
-package = Core - required
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = user.module
+files[] = user.test
+required = TRUE
+configure = admin/config/people
+stylesheets[all][] = user.css

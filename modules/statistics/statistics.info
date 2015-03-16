@@ -1,5 +1,8 @@
+; $Id$
 name = Statistics
 description = Logs access statistics for your site.
-package = Core - optional
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = statistics.test
+configure = admin/config/system/statistics

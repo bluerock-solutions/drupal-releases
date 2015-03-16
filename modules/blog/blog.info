@@ -1,5 +1,7 @@
+; $Id$
 name = Blog
-description = Enables keeping easily and regularly updated user web pages or blogs.
-package = Core - optional
+description = Enables multi-user blogs.
+package = Core
 version = VERSION
-core = 6.x
+core = 7.x
+files[] = blog.test

@@ -1,3 +1,11 @@
+/* $Id$ */
+
+#node-admin-content dl.multiselect dd .form-item label {
+  display: block;
+  float: right;
+  width: 6em;
+  font-weight: normal;
+}
 
 #node-admin-buttons {
   float: right;
