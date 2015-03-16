@@ -134,8 +134,24 @@ function file_check_upload($source) {
   elseif ($_FILES["edit"]["name"][$source] && is_uploaded_file($_FILES["edit"]["tmp_name"][$source])) {
     $file = new stdClass();
     $file->filename = trim(basename($_FILES["edit"]["name"][$source]), '.');
-    $file->filemime = $_FILES["edit"]["type"][$source];
     $file->filepath = $_FILES["edit"]["tmp_name"][$source];
+
+    if (function_exists('mime_content_type')) {
+      $file->filemime = mime_content_type($file->filepath);
+      if ($file->filemime != $_FILES["edit"]["type"][$source]) {
+        watchdog('file', t('For %file the system thinks its MIME type is %detected while the user has given %given for MIME type', array('%file' => theme('placeholder', $file->filepath), '%detected' => theme('placeholder', $file>-filemime), '%given' => theme('placeholder', $_FILES['edit']['type'][$source]))));
+      }
+    }
+    else {
+      $file->filemime = $_FILES["edit"]["type"][$source];
+    }
+    if (((substr($file->filemime, 0, 5) == 'text/' || strpos($file->filemime, 'javascript')) && (substr($file->filename, -4) != '.txt')) || preg_match('/\.(php|pl|py|cgi|asp)$/i', $file->filename)) {
+      $file->filemime = 'text/plain';
+      rename($file->filepath, $file->filepath .'.txt');
+      $file->filepath .= '.txt';
+      $file->filename .= '.txt';
+    }
+
     $file->error = $_FILES["edit"]["error"][$source];
     $file->filesize = $_FILES["edit"]["size"][$source];
     $file->source = $source;
@@ -356,12 +372,6 @@ function file_save_upload($source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
       }
     }
 
-    if (!user_access('bypass input data check') && !valid_input_data($file)) {
-      watchdog('error', t('Possible exploit abuse: invalid data.'));
-      drupal_set_message(t('File upload failed: invalid data.'), 'error');
-      return 0;
-    }
-
     // Check for file upload errors.
     switch ($file->error) {
       case 0: // UPLOAD_ERR_OK
@@ -400,12 +410,6 @@ function file_save_upload($source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
  * @return A string containing the resulting filename or 0 on error
  */
 function file_save_data($data, $dest, $replace = FILE_EXISTS_RENAME) {
-  if (!user_access('bypass input data check') && !valid_input_data($data)) {
-    watchdog('error', t('Possible exploit abuse: invalid data.'));
-    drupal_set_message(t('File upload failed: invalid data.'), 'error');
-    return 0;
-  }
-
   $temp = variable_get('file_directory_temp', FILE_DIRECTORY_TEMP);
   $file = tempnam($temp, 'file');
   if (!$fp = fopen($file, 'wb')) {
@@ -433,6 +437,10 @@ function file_transfer($source, $headers) {
   ob_end_clean();
 
   foreach ($headers as $header) {
+    // To prevent HTTP header injection, we delete new lines that are
+    // not followed by a space or a tab.
+    // See http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
+    $header = preg_replace('/\r?\n(?!\t| )/', '', $header);
     header($header);
   }
 

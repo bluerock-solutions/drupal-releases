@@ -47,7 +47,7 @@ function xmlrpc_value_calculate_type(&$xmlrpc_value) {
       $xmlrpc_value->data = get_object_vars($xmlrpc_value->data);
       return 'struct';
     default:
-      return string;
+      return 'string';
   }
 }
 
@@ -64,7 +64,7 @@ function xmlrpc_value_get_xml($xmlrpc_value) {
       return '<double>'. $xmlrpc_value->data .'</double>';
       break;
     case 'string':
-      return '<string>'. check_plain($xmlrpc_value->data) .'</string>';
+      return '<string>'. check_form($xmlrpc_value->data) .'</string>';
       break;
     case 'array':
       $return = '<array><data>'."\n";
@@ -77,7 +77,7 @@ function xmlrpc_value_get_xml($xmlrpc_value) {
     case 'struct':
       $return = '<struct>'."\n";
       foreach ($xmlrpc_value->data as $name => $value) {
-        $return .= "  <member><name>". check_plain($name) ."</name><value>";
+        $return .= "  <member><name>". check_form($name) ."</name><value>";
         $return .= xmlrpc_value_get_xml($value)."</value></member>\n";
       }
       $return .= '</struct>';
@@ -371,7 +371,7 @@ function xmlrpc() {
   }
   // Is the message a fault?
   if ($message->messagetype == 'fault') {
-    xmlrpc_error($message->faultcode, $message->faultstring);
+    xmlrpc_error($message->fault_code, $message->fault_string);
     return FALSE;
   }
   // Message must be OK

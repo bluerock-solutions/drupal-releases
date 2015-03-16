@@ -387,15 +387,6 @@ function drupal_unpack($obj, $field = 'data') {
 }
 
 /**
- * Return the URI of the referring page.
- */
-function referer_uri() {
-  if (isset($_SERVER['HTTP_REFERER'])) {
-    return check_url($_SERVER['HTTP_REFERER']);
-  }
-}
-
-/**
  * Return a component of the current Drupal path.
  *
  * When viewing a page at the path "admin/node/configure", for example, arg(0)
@@ -426,19 +417,6 @@ function check_query($text) {
 }
 
 /**
- * Prepare user input for use in a URI.
- *
- * We replace ( and ) with their entity equivalents to prevent XSS attacks.
- */
-function check_url($uri) {
-  $uri = htmlspecialchars($uri, ENT_QUOTES);
-
-  $uri = strtr($uri, array('(' => '&040;', ')' => '&041;'));
-
-  return $uri;
-}
-
-/**
  * Since request_uri() is only available on Apache, we generate an
  * equivalent using other environment vars.
  */
@@ -456,7 +434,7 @@ function request_uri() {
     }
   }
 
-  return check_url($uri);
+  return $uri;
 }
 
 /**
@@ -517,6 +495,13 @@ function drupal_get_messages() {
   $_SESSION['messages'] = array();
 
   return $messages;
+}
+
+/**
+ * Encode special characters in a plain-text string for display as HTML.
+ */
+function check_plain($text) {
+  return htmlspecialchars($text, ENT_QUOTES);
 }
 
 unset($conf);
