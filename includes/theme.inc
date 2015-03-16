@@ -472,7 +472,7 @@ function theme_links($links, $delimiter = ' | ') {
  *   A string containing the image tag.
  */
 function theme_image($path, $alt = '', $title = '', $attr = '', $getsize = true) {
-  if (!$getsize || (file_exists($path) && (list($width, $height, $type, $attr) = @getimagesize($path)))) {
+  if (!$getsize || (is_file($path) && (list($width, $height, $type, $image_attributes) = @getimagesize($path)))) {
     return '<img src="'. check_url($path) .'" '. $attr .' alt="'. check_plain($alt) .'" title="'. check_plain($title) .'" />';
   }
 }
@@ -633,7 +633,7 @@ function theme_table($header, $rows, $attributes = NULL) {
   $output = '<table'. drupal_attributes($attributes) .">\n";
 
   // Format the table header:
-  if (is_array($header)) {
+  if (count($header)) {
     $ts = tablesort_init($header);
     $output .= ' <tr>';
     foreach ($header as $cell) {
@@ -644,7 +644,7 @@ function theme_table($header, $rows, $attributes = NULL) {
   }
 
   // Format the table rows:
-  if (is_array($rows)) {
+  if (count($rows)) {
     foreach ($rows as $number => $row) {
       $attributes = array();
 
