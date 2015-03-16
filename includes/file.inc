@@ -47,19 +47,27 @@ function file_create_url($path) {
  *
  * @param $dest Path to verify
  * @return Path to file with file system directory appended if necessary.
+ *         Returns FALSE if the path is invalid (i.e. outside the configured 'files'-directory).
  */
 function file_create_path($dest = 0) {
+  $file_path = variable_get('file_directory_path', 'files');
   if (!$dest) {
-    return variable_get('file_directory_path', 'files');
+    return $file_path;
   }
-
-  $regex = (IS_WINDOWS ? '.?:\\\\' : '/');
-  if (!file_check_location($dest, variable_get('file_directory_path', 'files')) && !preg_match("|^$regex|", $dest)) {
-    return variable_get('file_directory_path', 'files') .'/'. trim($dest, '\\/');
-  }
-  else {
+  // file_check_location() checks whether the destination is inside the Drupal files directory.
+  if (file_check_location($dest, $file_path)) {
     return $dest;
   }
+  // check if the destination is instead inside the Drupal temporary files directory.
+  else if (file_check_location($dest, variable_get('file_directory_temp', FILE_DIRECTORY_TEMP))) {
+    return $dest;
+  }
+  // Not found, try again with prefixed dirctory path.
+  else if (file_check_location($file_path . '/' . $dest, $file_path)) {
+    return $file_path . '/' . $dest;
+  }
+  // File not found.
+  return FALSE;
 }
 
 /**
@@ -165,7 +173,14 @@ function file_check_upload($source) {
  * @return 0 for invalid path or the real path of the source.
  */
 function file_check_location($source, $directory = 0) {
-  $source = realpath($source);
+  $check = realpath($source);
+  if ($check) {
+    $source = $check;
+  }
+  else {
+    // This file does not yet exist
+    $source = realpath(dirname($source)) .'/'. basename($source);
+  }
   $directory = realpath($directory);
   if ($directory && strpos($source, $directory) !== 0) {
     return 0;
@@ -440,11 +455,15 @@ function file_transfer($source, $headers) {
   $source = file_create_path($source);
 
   // Transfer file in 1024 byte chunks to save memory usage.
-  $fd = fopen($source, 'rb');
-  while (!feof($fd)) {
-    print fread($fd, 1024);
+  if ($fd = fopen($source, 'rb')) {
+    while (!feof($fd)) {
+      print fread($fd, 1024);
+    }
+    fclose($fd);
   }
-  fclose($fd);
+  else {
+    drupal_not_found();
+  }
   exit();
 }
 

@@ -198,15 +198,15 @@ function aggregator_block($op, $delta = 0, $edit = array()) {
     if ($op == 'list') {
       $result = db_query('SELECT cid, title FROM {aggregator_category} ORDER BY title');
       while ($category = db_fetch_object($result)) {
-        $block['category:'. $category->cid]['info'] = t('%title category latest items', array('%title' => theme('placeholder', $category->title)));
+        $block['category-'. $category->cid]['info'] = t('%title category latest items', array('%title' => theme('placeholder', $category->title)));
       }
       $result = db_query('SELECT fid, title FROM {aggregator_feed} ORDER BY fid');
       while ($feed = db_fetch_object($result)) {
-        $block['feed:'. $feed->fid]['info'] = t('%title feed latest items', array('%title' => theme('placeholder', $feed->title)));
+        $block['feed-'. $feed->fid]['info'] = t('%title feed latest items', array('%title' => theme('placeholder', $feed->title)));
       }
     }
     else if ($op == 'configure') {
-      list($type, $id) = split(':', $delta);
+      list($type, $id) = explode('-', $delta);
       if ($type == 'category') {
         $value = db_result(db_query('SELECT block FROM {aggregator_category} WHERE cid = %d', $id));
       }
@@ -218,7 +218,7 @@ function aggregator_block($op, $delta = 0, $edit = array()) {
       return $output;
     }
     else if ($op == 'save') {
-      list($type, $id) = split(':', $delta);
+      list($type, $id) = explode('-', $delta);
       if ($type == 'category') {
         $value = db_query('UPDATE {aggregator_category} SET block = %d WHERE cid = %d', $edit['block'], $id);
       }
@@ -227,7 +227,7 @@ function aggregator_block($op, $delta = 0, $edit = array()) {
       }
     }
     else if ($op == 'view') {
-      list($type, $id) = split(':', $delta);
+      list($type, $id) = explode('-', $delta);
       switch ($type) {
         case 'feed':
           if ($feed = db_fetch_object(db_query('SELECT fid, title, block FROM {aggregator_feed} WHERE fid = %d', $id))) {
@@ -953,7 +953,7 @@ function _aggregator_page_list($sql, $op, $header = '') {
  * Menu callback; displays all the feeds used by the aggregator.
  */
 function aggregator_page_sources() {
-  $result = db_query('SELECT f.fid, f.title, f.description, f.image, MAX(i.timestamp) AS last FROM {aggregator_feed} f LEFT JOIN {aggregator_item} i ON f.fid = i.fid GROUP BY f.fid');
+  $result = db_query('SELECT f.fid, f.title, f.description, f.image, MAX(i.timestamp) AS last FROM {aggregator_feed} f LEFT JOIN {aggregator_item} i ON f.fid = i.fid GROUP BY f.fid, f.title, f.description, f.image');
   $output = "<div id=\"aggregator\">\n";
   while ($feed = db_fetch_object($result)) {
     $output .= '<h2>'. check_plain($feed->title) ."</h2>\n";
@@ -1097,14 +1097,14 @@ function theme_aggregator_summary_item($item) {
 function theme_aggregator_page_item($item) {
   static $last;
 
-  $date = date('Ymd', $item->timestamp);
+  $date = format_date($item->timestamp, 'custom', 'Ymd');
   if ($date != $last) {
     $last = $date;
-    $output .= '<h3>'. date('F j, Y', $item->timestamp) ."</h3>\n";
+    $output .= '<h3>'. format_date($item->timestamp, 'custom', 'F j, Y') ."</h3>\n";
   }
 
   $output .= "<div class=\"news-item\">\n";
-  $output .= ' <div class="date">'. date('H:i', $item->timestamp) ."</div>\n";
+  $output .= ' <div class="date">'. format_date($item->timestamp, 'custom', 'H:i') ."</div>\n";
   $output .= " <div class=\"body\">\n";
   $output .= '  <div class="title"><a href="'. check_url($item->link) .'">'. check_plain($item->title) ."</a></div>\n";
   if ($item->description) {

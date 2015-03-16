@@ -105,7 +105,9 @@ $sql_updates = array(
   "2005-03-03" => "update_126",
   "2005-03-18" => "update_127",
   "2005-03-21" => "update_128",
-  "2005-04-14" => "update_129"
+  "2005-04-14" => "update_129",
+  "2005-05-06" => "update_130",
+  "2005-05-07" => "update_131"
 );
 
 function update_32() {
@@ -2359,6 +2361,33 @@ function update_129() {
      */
     include_once('modules/search.module');
     search_wipe();
+  }
+
+  return $ret;
+}
+
+function update_130() {
+  $result = db_query("SELECT delta FROM {blocks} WHERE module = 'aggregator'");
+  while ($block = db_fetch_object($result)) {
+    list($type, $id) = explode(':', $block->delta);
+    db_query("UPDATE {blocks} SET delta = '%s' WHERE module = 'aggregator' AND delta = '%s'", $type .'-'. $id, $block->delta);
+  }
+  return array();
+}
+
+function update_131() {
+  $ret = array();
+
+  if ($GLOBALS['db_type'] == 'mysql') {
+    $ret[] = update_sql("ALTER TABLE {locales_source} CHANGE location location varchar(255) NOT NULL default ''");
+  }
+  elseif ($GLOBALS['db_type'] == 'pgsql') {
+    $ret[] = update_sql("ALTER TABLE {locales_source} RENAME location TO location_old");
+    $ret[] = update_sql("ALTER TABLE {locales_source} ADD location varchar(255)");
+    $ret[] = update_sql("ALTER TABLE {locales_source} ALTER location SET NOT NULL");
+    $ret[] = update_sql("ALTER TABLE {locales_source} ALTER location SET DEFAULT ''");
+    $ret[] = update_sql("UPDATE {locales_source} SET location = location_old");
+    $ret[] = update_sql("ALTER TABLE {locales_source} DROP location_old");
   }
 
   return $ret;

@@ -585,7 +585,7 @@ function book_tree($parent = 0, $depth = 3, $unfold = array()) {
   }
 
   if ($tree = book_tree_recurse($parent, $depth, $children, $unfold)) {
-    return '<ul>'. $tree .'</ul>';
+    return '<div class="menu"><ul>'. $tree .'</ul></div>';
   }
 }
 
@@ -641,11 +641,11 @@ function book_print($nid = 0, $depth = 1) {
     }
   }
 
-  $output .= book_print_recurse($nid, $depth);
+  $output .= book_print_recurse($nid, $depth + 1);
 
   $html = '<html><head><title>'. check_plain($node->title) .'</title>';
   $html .= '<base href="'. $base_url .'/" />';
-  $html .= "<style type=\"text/css\">\n@import url(misc/print.css);\n</style>";
+  $html .= theme_stylesheet_import('misc/print.css', 'print');
   $html .= '</head><body>'. $output .'</body></html>';
 
   print $html;
@@ -685,11 +685,13 @@ function book_print_recurse($parent = '', $depth = 1) {
 }
 
 function book_admin_view_line($node, $depth = 0) {
-  return array('<div style="padding-left: '. (25 * $depth) .'px;">'. form_textfield(NULL, $node->nid .'][title', $node->title, 64, 255) .'</div>', form_weight(NULL, $node->nid .'][weight', $node->weight, 15), l(t('view'), 'node/'. $node->nid), l(t('edit'), 'node/'. $node->nid .'/edit'), l(t('delete'), 'admin/node/delete/'. $node->nid));
+  return array('<div style="padding-left: '. (25 * $depth) .'px;">'. form_textfield(NULL, $node->nid .'][title', $node->title, 64, 255) .'</div>', form_weight(NULL, $node->nid .'][weight', $node->weight, 15), l(t('view'), 'node/'. $node->nid), l(t('edit'), 'node/'. $node->nid .'/edit'), l(t('delete'), 'node/'.$node->nid.'/delete'));
 }
 
 function book_admin_view_book($nid, $depth = 1) {
   $result = db_query(db_rewrite_sql('SELECT n.nid FROM {node} n INNER JOIN {book} b ON n.nid = b.nid WHERE b.parent = %d ORDER BY b.weight, n.title'), $nid);
+
+  $rows = array();
 
   while ($node = db_fetch_object($result)) {
     $node = node_load(array('nid' => $node->nid));

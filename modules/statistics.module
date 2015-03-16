@@ -148,11 +148,11 @@ function statistics_access_log($aid) {
   if ($access = db_fetch_object($result)) {
     $output  = '<table border="1" cellpadding="2" cellspacing="2">';
     $output .= ' <tr><th>'. t('Page URL') ."</th><td>". l(url($access->path, NULL, NULL, TRUE), $access->url) ."</td></tr>";
-    $output .= ' <tr><th>'. t('Page title') ."</th><td>$access->title</td></tr>";
+    $output .= ' <tr><th>'. t('Page title') .'</th><td>'. check_plain($access->title) .'</td></tr>';
     $output .= ' <tr><th>'. t('Referrer') ."</th><td>". ($access->url ? l($access->url, $access->url) : '') ."</td></tr>";
     $output .= ' <tr><th>'. t('Date') .'</th><td>'. format_date($access->timestamp, 'large') .'</td></tr>';
     $output .= ' <tr><th>'. t('User') .'</th><td>'. format_name($access) .'</td></tr>';
-    $output .= ' <tr><th>'. t('Hostname') ."</th><td>$access->hostname</td></tr>";
+    $output .= ' <tr><th>'. t('Hostname') .'</th><td>'. check_plain($access->hostname) .'</td></tr>';
     $output .= '</table>';
     print theme('page', $output);
   }
@@ -252,7 +252,7 @@ function statistics_recent_hits($type = 'all', $id = 0) {
  * Menu callback; presents the "Top pages" page.
  */
 function statistics_top_pages() {
-  $sql = "SELECT COUNT(path) AS hits, path, title FROM {accesslog} GROUP BY path";
+  $sql = "SELECT COUNT(path) AS hits, path, title FROM {accesslog} GROUP BY path, title";
   $sql_cnt = "SELECT COUNT(DISTINCT(path)) FROM {accesslog}";
 
   $header = array(
@@ -317,7 +317,7 @@ function statistics_top_referrers() {
   $result = pager_query($query, 30, 0, $query_cnt, $_SERVER['HTTP_HOST']);
 
   while ($referrer = db_fetch_object($result)) {
-    $rows[] = array($referrer->hits, '<a href="'. $referrer->url .'">'. _statistics_column_width($referrer->url) .'</a>', t('%time ago', array('%time' => format_interval(time() - $referrer->last))));
+    $rows[] = array($referrer->hits, '<a href="'. check_url($referrer->url) .'">'. check_plain(_statistics_column_width($referrer->url)) .'</a>', t('%time ago', array('%time' => format_interval(time() - $referrer->last))));
   }
   if ($pager = theme('pager', NULL, 30, 0, tablesort_pager())) {
     $rows[] = array(array('data' => $pager, 'colspan' => '3'));
@@ -385,7 +385,7 @@ function statistics_cron() {
  *   or FALSE if the query could not be executed correctly.
  */
 function statistics_title_list($dbfield, $dbrows) {
-  return db_query_range("SELECT s.nid, n.title, u.uid, u.name FROM {node_counter} s INNER JOIN {node} n ON s.nid = n.nid INNER JOIN {users} u ON n.uid = u.uid WHERE %s <> '0' AND n.status = 1 ORDER BY %s DESC", 's.'. $dbfield, 's.'. $dbfield, 0, $dbrows);
+  return db_query_range(db_rewrite_sql("SELECT n.nid, n.title, u.uid, u.name FROM {node_counter} s INNER JOIN {node} n ON s.nid = n.nid INNER JOIN {users} u ON n.uid = u.uid WHERE %s <> '0' AND n.status = 1 ORDER BY %s DESC"), 's.'. $dbfield, 's.'. $dbfield, 0, $dbrows);
 }
 
 /**

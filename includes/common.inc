@@ -1518,7 +1518,6 @@ function drupal_attributes($attributes = array()) {
     foreach ($attributes as $key => $value) {
       $t[] = $key .'="'. check_plain($value) .'"';
     }
-
     return ' '. implode($t, ' ');
   }
 }
@@ -1639,7 +1638,7 @@ function drupal_xml_parser_create(&$data) {
       $encoding = 'utf-8';
     }
     else {
-      watchdog('php', t("Could not convert XML encoding '%s' to UTF-8.", $encoding), WATCHDOG_WARNING);
+      watchdog('php', t("Could not convert XML encoding '%s' to UTF-8.", array('%s' => $encoding)), WATCHDOG_WARNING);
       return 0;
     }
   }
@@ -1672,7 +1671,7 @@ function drupal_convert_to_utf8($data, $encoding) {
     $out = @recode_string($encoding .'..utf-8', $data);
   }
   else {
-    watchdog('php', t("Unsupported encoding '%s'. Please install iconv, GNU recode or mbstring for PHP.", $encoding), WATCHDOG_ERROR);
+    watchdog('php', t("Unsupported encoding '%s'. Please install iconv, GNU recode or mbstring for PHP.", array('%s' => $encoding)), WATCHDOG_ERROR);
     return FALSE;
   }
 
@@ -1715,7 +1714,8 @@ function truncate_utf8($string, $len, $wordsafe = FALSE) {
 }
 
 /**
- * Encodes MIME/HTTP header values that contain non US-ASCII characters.
+ * Encodes MIME/HTTP header values that contain non-ASCII, UTF-8 encoded
+ * characters.
  *
  * For example, mime_header_encode('tést.txt') returns "=?UTF-8?B?dMOpc3QudHh0?=".
  *
@@ -1723,18 +1723,24 @@ function truncate_utf8($string, $len, $wordsafe = FALSE) {
  *
  * Notes:
  * - Only encode strings that contain non-ASCII characters.
- * - The chunks come in groupings of 4 bytes when using base64 encoding.
- * - trim() is used to ensure that no extra spacing is added by chunk_split() or
- *   preg_replace().
+ * - We progressively cut-off a chunk with truncate_utf8(). This is to ensure
+ *   each chunk starts and ends on a character boundary.
  * - Using \n as the chunk separator may cause problems on some systems and may
  *   have to be changed to \r\n or \r.
  */
-function mime_header_encode($string, $charset = 'UTF-8') {
+function mime_header_encode($string) {
   if (!preg_match('/^[\x20-\x7E]*$/', $string)) {
-    $chunk_size = 75 - 7 - strlen($charset);
-    $chunk_size -= $chunk_size % 4;
-    $string = trim(chunk_split(base64_encode($string), $chunk_size, "\n"));
-    $string = trim(preg_replace('/^(.*)$/m', " =?$charset?B?\\1?=", $string));
+    $chunk_size = 47; // floor((75 - strlen("=?UTF-8?B??=")) * 0.75);
+    $len = strlen($string);
+    $output = '';
+    while ($len > 0) {
+      $chunk = truncate_utf8($string, $chunk_size);
+      $output .= ' =?UTF-8?B?'. base64_encode($chunk) ."?=\n";
+      $c = strlen($chunk);
+      $string = substr($string, $c);
+      $len -= $c;
+    }
+    return trim($output);
   }
   return $string;
 }
@@ -1857,6 +1863,13 @@ function drupal_eval($code) {
  */
 function drupal_get_path($type, $name) {
   return dirname(drupal_get_filename($type, $name));
+}
+
+/**
+ * Add a <link> tag to the page's HEAD.
+ */
+function drupal_add_link($attributes) {
+  drupal_set_html_head('<link'. drupal_attributes($attributes) .">\n");
 }
 
 /**

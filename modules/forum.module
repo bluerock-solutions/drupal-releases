@@ -132,7 +132,7 @@ function _forum_confirm_delete($tid) {
 
   $extra = form_hidden('tid', $tid);
   $output = theme('confirm',
-                  t('Are you sure you want to delete the forum %name?', array('%name' => '<em>'. $term->name .'</em>')),
+                  t('Are you sure you want to delete the forum %name?', array('%name' => theme('placeholder', $term->name))),
                   'admin/forums',
                   t('Deleting a forum or container will delete all sub-forums as well. This action cannot be undone.'),
                   t('Delete'),
@@ -332,13 +332,19 @@ function forum_block($op = 'list', $delta = 0, $edit = array()) {
           case 0:
             $title = t('Active forum topics');
             $sql = db_rewrite_sql("SELECT n.nid, n.title, l.last_comment_timestamp, l.comment_count FROM {node} n INNER JOIN {node_comment_statistics} l ON n.nid = l.nid WHERE n.status = 1 AND n.type='forum' ORDER BY l.last_comment_timestamp DESC");
-            $content = node_title_list(db_query_range($sql, 0, variable_get('forum_block_num_0', '5')));
+            $result = db_query_range($sql, 0, variable_get('forum_block_num_0', '5'));
+            if (db_num_rows($result)) {
+              $content = node_title_list($result);
+            }
             break;
 
           case 1:
             $title = t('New forum topics');
             $sql = db_rewrite_sql("SELECT n.nid, n.title, l.comment_count FROM {node} n INNER JOIN {node_comment_statistics} l ON n.nid = l.nid WHERE n.type = 'forum' AND n.status = 1 ORDER BY n.nid DESC");
-            $content = node_title_list(db_query_range($sql, 0, variable_get('forum_block_num_1', '5')));
+            $result = db_query_range($sql, 0, variable_get('forum_block_num_1', '5'));
+            if (db_num_rows($result)) {
+              $content = node_title_list($result);
+            }
             break;
         }
 
@@ -613,7 +619,7 @@ function forum_get_forums($tid = 0) {
     // This query does not use full ANSI syntax since MySQL 3.x does not support
     // table1 INNER JOIN table2 INNER JOIN table3 ON table2_criteria ON table3_criteria
     // used to join node_comment_statistics to users.
-    $sql = "SELECT n.nid, l.last_comment_timestamp, IF(l.last_comment_uid, cu.name, l.last_comment_name) as last_comment_name, l.last_comment_uid FROM {node} n, {node_comment_statistics} l /*! USE INDEX (node_comment_timestamp) */, {users} cu, {term_node} r WHERE  n.nid = r.nid AND r.tid = %d AND n.status = 1 AND n.type = 'forum' AND l.last_comment_uid = cu.uid AND n.nid = l.nid ORDER BY l.last_comment_timestamp DESC";
+    $sql = "SELECT n.nid, l.last_comment_timestamp, IF(l.last_comment_uid, cu.name, l.last_comment_name) as last_comment_name, l.last_comment_uid FROM {node} n, {node_comment_statistics} l, {users} cu, {term_node} r WHERE  n.nid = r.nid AND r.tid = %d AND n.status = 1 AND n.type = 'forum' AND l.last_comment_uid = cu.uid AND n.nid = l.nid ORDER BY l.last_comment_timestamp DESC";
     $sql = db_rewrite_sql($sql);
     $topic = db_fetch_object(db_query_range($sql, $forum->tid, 0, 1));
 
@@ -799,7 +805,10 @@ function theme_forum_display($forums, $topics, $parents, $tid, $sortby, $forum_p
     $output .= theme('forum_list', $forums, $parents, $tid);
 
     if ($tid && !in_array($tid, variable_get('forum_containers', array()))) {
-      drupal_set_html_head('<link rel="alternate" type="application/rss+xml" title="RSS - '. $title .'" href="'. url('taxonomy/term/'. $tid .'/0/feed') .'" />');
+      drupal_add_link(array('rel' => 'alternate',
+                            'type' => 'application/rss+xml',
+                            'title' => 'RSS - '. $title,
+                            'href' => url('taxonomy/term/'. $tid .'/0/feed')));
 
       $output .= theme('forum_topic_list', $tid, $topics, $sortby, $forum_per_page);
       $output .= theme('xml_icon', url("taxonomy/term/$tid/0/feed"));
@@ -832,7 +841,7 @@ function theme_forum_list($forums, $parents, $tid) {
         $description .= ' <div class="name">'. l($forum->name, "forum/$forum->tid") ."</div>\n";
 
         if ($forum->description) {
-          $description .= " <div class=\"description\">$forum->description</div>\n";
+          $description .= ' <div class="description">'. check_plain($forum->description) ."</div>\n";
         }
         $description .= "</div>\n";
 
@@ -851,7 +860,7 @@ function theme_forum_list($forums, $parents, $tid) {
         $description .= ' <div class="name">'. l($forum->name, "forum/$forum->tid") ."</div>\n";
 
         if ($forum->description) {
-          $description .= " <div class=\"description\">$forum->description</div>\n";
+          $description .= ' <div class="description">'. check_plain($forum->description) ."</div>\n";
         }
         $description .= "</div>\n";
 

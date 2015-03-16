@@ -171,7 +171,8 @@ tr.light .form-item, tr.dark .form-item {
   display: block;
   width: 95%;
 }
-.node-form fieldset {
+* html .node-form fieldset {
+/* Note: IE-only CSS due to "* html" escape. Sadly required for fieldsets to appear correctly. */
   display: inline;
 }
 .node-form .admin .form-item .title {
