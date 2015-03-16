@@ -6,7 +6,7 @@
  * Configuration system that lets administrators modify the workings of the site.
  */
 
-define('VERSION', '4.7.10');
+define('VERSION', '4.7.11');
 
 /**
  * Implementation of hook_help().
@@ -169,7 +169,7 @@ function system_user($type, $edit, &$user, $category = NULL) {
   }
 }
 
-/*
+/**
  * Returns a fieldset containing the theme select form.
  *
  * @param $description
