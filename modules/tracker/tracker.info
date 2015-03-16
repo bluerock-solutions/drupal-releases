@@ -1,0 +1,5 @@
+; $Id$
+name = Tracker
+description = Enables tracking of recent posts for users.
+package = Core - optional
+version = VERSION
