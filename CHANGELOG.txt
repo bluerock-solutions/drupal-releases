@@ -1,5 +1,12 @@
 // $Id$
 
+Drupal 5.20, 2009-09-16
+-----------------------
+- Avoid security problems resulting from writing Drupal 6-style menu
+  declarations.
+- Fixed security issues (session fixation), see SA-CORE-2009-008.
+- Fixed a variety of small bugs.
+
 Drupal 5.19, 2009-07-01
 -----------------------
 - Fixed security issues (Cross site scripting and Password leakage in URL), see
