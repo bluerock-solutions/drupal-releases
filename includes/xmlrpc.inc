@@ -82,7 +82,9 @@ function xmlrpc_value_get_xml($xmlrpc_value) {
       return '<double>'. $xmlrpc_value->data .'</double>';
       break;
     case 'string':
-      return '<string>'. check_plain($xmlrpc_value->data) .'</string>';
+      // Note: we don't escape apostrophes because of the many blogging clients
+      // that don't support numerical entities (and XML in general) properly.
+      return '<string>'. htmlspecialchars($xmlrpc_value->data) .'</string>';
       break;
     case 'array':
       $return = '<array><data>'."\n";
@@ -258,7 +260,7 @@ function xmlrpc_message_tag_close($parser, $tag) {
       }
     }
     else {
-      // Just add as a paramater
+      // Just add as a parameter
       $xmlrpc_message->params[] = $value;
     }
   }
@@ -334,6 +336,7 @@ function xmlrpc_date($time) {
     $xmlrpc_date->hour = date('H', $time);
     $xmlrpc_date->minute = date('i', $time);
     $xmlrpc_date->second = date('s', $time);
+    $xmlrpc_date->iso8601 = date('Ymd\TH:i:s');
   }
   else {
     $xmlrpc_date->year = substr($time, 0, 4);
@@ -342,6 +345,7 @@ function xmlrpc_date($time) {
     $xmlrpc_date->hour = substr($time, 9, 2);
     $xmlrpc_date->minute = substr($time, 12, 2);
     $xmlrpc_date->second = substr($time, 15, 2);
+    $xmlrpc_date->iso8601 = $time;
   }
   return $xmlrpc_date;
 }
@@ -361,25 +365,21 @@ function xmlrpc_base64_get_xml($xmlrpc_base64) {
   return '<base64>'. base64_encode($xmlrpc_base64->data) .'</base64>';
 }
 
-/**
- * Perform an XML-RPC request.
- *
- * @param $url
- *    An absolute URL of the XML-RPC server
- * @param $method
- *    The method to be executed
- * @param ...
- *   A variable number of arguments of the method.
- * @return
- *   The return value of the method on success or FALSE. On FALSE, see
- *   xmlrpc_errno() and xmlrpc_error_msg().
- */
-function xmlrpc() {
+function _xmlrpc() {
   $args = func_get_args();
   $url = array_shift($args);
-  $method = array_shift($args);
+  if (is_array($args[0])) {
+    $method = 'system.multicall';
+    $multicall_args = array();
+    foreach ($args[0] as $call) {
+      $multicall_args[] = array('methodName' => array_shift($call),'params' => $call);
+    }
+    $args = array($multicall_args);
+  }
+  else {
+    $method = array_shift($args);
+  }
   $xmlrpc_request = xmlrpc_request($method, $args);
-//  $request .= "Content-Type: text/xml$r";
   $result = drupal_http_request($url, array("Content-Type" => "text/xml"), 'POST', $xmlrpc_request->xml);
   if ($result->code != 200) {
     xmlrpc_error(-$result->code, $result->error);
@@ -402,30 +402,6 @@ function xmlrpc() {
 }
 
 /**
- * Perform multiple calls in one request if possible.
- *
- * @param $url
- *    An absolute URL of the XML-RPC server
- * @param $calls
- *    An array of calls. Each call is an array, where the first element
- *    is the method name, further elements are the arguments.
- * @return
- *    An array of results.
- */
-function xmlrpc_multicall() {
-  $args = func_get_args();
-  $url = $args[0];
-  foreach ($args[1] as $call) {
-    $method = array_shift($call);
-    $calls[] = array(
-      'methodName' => $method,
-      'params' => $call
-    );
-  }
-  return xmlrpc($url, 'system.multicall', $calls);
-}
-
-/**
  * Returns the last XML-RPC client error number
  */
 function xmlrpc_errno() {
@@ -440,4 +416,4 @@ function xmlrpc_error_msg() {
   $error = xmlrpc_error();
   return $error->message;
 }
-?>
+

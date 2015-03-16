@@ -124,7 +124,8 @@ function xmlrpc_server_multicall($methodcalls) {
     $params = $call['params'];
     if ($method == 'system.multicall') {
       $result = xmlrpc_error(-32600, t('Recursive calls to system.multicall are forbidden'));
-    } else {
+    }
+    else {
       $result = xmlrpc_server_call($xmlrpc_server, $method, $params);
     }
     if ($result->is_error) {
@@ -132,7 +133,8 @@ function xmlrpc_server_multicall($methodcalls) {
         'faultCode' => $result->code,
         'faultString' => $result->message
       );
-    } else {
+    }
+    else {
       $return[] = $result;
     }
   }
@@ -229,7 +231,7 @@ function xmlrpc_server_call($xmlrpc_server, $methodname, $args) {
   // Perform the callback and send the response
 /*
   if (count($args) == 1) {
-    // If only one paramater just send that instead of the whole array
+    // If only one parameter just send that instead of the whole array
     $args = $args[0];
   }
 */
@@ -240,12 +242,11 @@ function xmlrpc_server_call($xmlrpc_server, $methodname, $args) {
   return call_user_func_array($method, $args);
 }
 
-function xmlrpc_server_method_signature($methodname) {
-  $xmlrpc_server = xmlrpc_server_get();
+function xmlrpc_server_method_signature($xmlrpc_server, $methodname) {
   if (!isset($xmlrpc_server->callbacks[$methodname])) {
     return xmlrpc_error(-32601, t('server error. requested method %methodname not specified.', array("%methodname" => $methodname)));
   }
-  if (!is_array($xmlrpc_server->signatures[$methodname])) {
+  if (!is_array($xmlrpc_server->signature[$methodname])) {
     return xmlrpc_error(-32601, t('server error. requested method %methodname signature not specified.', array("%methodname" => $methodname)));
   }
   // We should be returning an array of types
@@ -287,4 +288,4 @@ function xmlrpc_server_method_help($method) {
   return $xmlrpc_server->help[$method];
 }
 
-?>
+

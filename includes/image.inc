@@ -11,7 +11,7 @@ function image_get_available_toolkits() {
 
   $output = array();
   foreach ($toolkits as $file => $toolkit) {
-    include_once($file);
+    include_once "./$file";
     $function = str_replace('.', '_', $toolkit->name) .'_info';
     if (function_exists($function)) {
       $info = $function();
@@ -31,7 +31,7 @@ function image_get_toolkit() {
   static $toolkit;
   if (!$toolkit) {
     $toolkit = variable_get('image_toolkit', 'gd');
-    $toolkit_file = 'includes/image.'.$toolkit.'.inc';
+   $toolkit_file = './includes/image.'.$toolkit.'.inc';
     if ($toolkit != 'gd' && file_exists($toolkit_file)) {
       include_once $toolkit_file;
     }
@@ -78,6 +78,7 @@ function image_toolkit_invoke($method, $params = array()) {
  *      'height': image's height in pixels
  *      'extension': commonly used extension for the image
  *      'mime_type': image's MIME type ('image/jpeg', 'image/gif', etc.)
+ *      'file_size': image's physical size (in bytes)
  */
 function image_get_info($file) {
   if (!is_file($file)) {
@@ -86,13 +87,15 @@ function image_get_info($file) {
 
   $details = false;
   $data = @getimagesize($file);
+  $file_size = @filesize($file);
 
-  if (is_array($data)) {
+  if (isset($data) && is_array($data)) {
     $extensions = array('1' => 'gif', '2' => 'jpg', '3' => 'png');
     $extension = array_key_exists($data[2], $extensions) ?  $extensions[$data[2]] : '';
     $details = array('width'     => $data[0],
                      'height'    => $data[1],
                      'extension' => $extension,
+                     'file_size' => $file_size,
                      'mime_type' => $data['mime']);
   }
 
@@ -122,7 +125,8 @@ function image_scale($source, $destination, $width, $height) {
   if ($aspect < $height / $width) {
     $width = (int)min($width, $info['width']);
     $height = (int)round($width * $aspect);
-  } else {
+  }
+  else {
     $height = (int)min($height, $info['height']);
     $width = (int)round($height / $aspect);
   }
@@ -296,4 +300,4 @@ function image_gd_close($res, $destination, $extension) {
   return $close_func($res, $destination);
 }
 
-?>
+

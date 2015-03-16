@@ -9,23 +9,27 @@
  * prints the appropriate page.
  */
 
-include_once 'includes/bootstrap.inc';
-drupal_page_header();
-include_once 'includes/common.inc';
+require_once './includes/bootstrap.inc';
+drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
-fix_gpc_magic();
-drupal_check_token();
-
-$status = menu_execute_active_handler();
-switch ($status) {
+$return = menu_execute_active_handler();
+switch ($return) {
   case MENU_NOT_FOUND:
     drupal_not_found();
     break;
   case MENU_ACCESS_DENIED:
     drupal_access_denied();
     break;
+  case MENU_SITE_OFFLINE:
+    drupal_site_offline();
+    break;
+  default:
+    // Print any value (including an empty string) except NULL or undefined:
+    if (isset($return)) {
+      print theme('page', $return);
+    }
+    break;
 }
 
 drupal_page_footer();
 
-?>

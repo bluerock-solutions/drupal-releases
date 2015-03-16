@@ -20,7 +20,7 @@ h1 {
   color: #369;
   font-size: 1.6em;
 }
-tr.dark td, tr.light td {
+tr.odd td, tr.even td {
   padding: 0.3em;
 }
 a:link {
@@ -207,12 +207,10 @@ td#home a:hover img {
 #search .form-text, #search .form-submit {
   border: 1px solid #369;
   font-size: 0.85em;
+  margin: 0.2em;
 }
 #search .form-text {
-  width: 8em;
-  height: 1.4em;
-  padding: 0 0.5em 0 0.5em;
-  margin: 0 0 0.5em 0;
+  width: 9em;
 }
 #search .form-submit {
   height: 1.5em;
@@ -495,7 +493,7 @@ table#footer-menu {
 .content .active {
   color: #369;
 }
-#aggregator .feed {
+#aggregator .feed-source {
   background-color: #eee;
   border: 1px solid #ccc;
   padding: 1em;
@@ -522,7 +520,7 @@ table#footer-menu {
 #tracker th img {
   float: right;
 }
-#tracker tr.light, #tracker tr.dark {
+#tracker tr.even, #tracker tr.odd {
   background-color: #fff;
 }
 #tracker td {
@@ -552,10 +550,10 @@ table#footer-menu {
 #forum table tr th img  {
   margin: 0;
 }
-#forum tr.dark {
+#forum tr.odd {
   background: #e0edfb;
 }
-#forum tr.light {
+#forum tr.even {
   background: #fff;
 }
 #forum td {
