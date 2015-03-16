@@ -333,12 +333,14 @@ function drupal_http_request($url, $headers = array(), $method = 'GET', $data = 
   fwrite($fp, $request);
 
   // Fetch response.
-  while (!feof($fp) && $data = fgets($fp, 1024)) {
-    $response[] = $data;
+  $response = '';
+  while (!feof($fp) && $data = fread($fp, 1024)) {
+    $response .= $data;
   }
   fclose($fp);
 
   // Parse response.
+  $response = preg_split("/\r\n|\n|\r/", $response);
   list($protocol, $code, $text) = explode(' ', trim(array_shift($response)), 3);
   $result->headers = array();
   $result->data = '';
@@ -903,7 +905,7 @@ function format_name($object) {
     */
 
     if (strlen($object->name) > 20) {
-      $name = substr($object->name, 0, 15) ."...";
+      $name = truncate_utf8($object->name, 15) ."...";
     }
     else {
       $name = $object->name;
@@ -1217,6 +1219,31 @@ function drupal_xml_parser_create(&$data) {
   $xml_parser = xml_parser_create($encoding);
   xml_parser_set_option($xml_parser, XML_OPTION_TARGET_ENCODING, 'utf-8');
   return $xml_parser;
+}
+
+/**
+ * UTF-8-safe string truncation
+ * If the end position is in the middle of a UTF-8 sequence, it scans backwards
+ * until the beginning of the byte sequence.
+ *
+ * Use this function whenever you want to chop off a string at an unsure
+ * location. On the other hand, if you're sure that you're splitting on a
+ * character boundary (e.g. after using strpos or similar), you can safely use
+ * substr() instead.
+ *
+ * @param $string The string to truncate
+ * @param $len An upper limit on the returned string length.
+ */
+function truncate_utf8($string, $len) {
+  $slen = strlen($string);
+  if ($slen <= $len) {
+    return $string;
+  }
+  if ((ord($string[$len]) < 0x80) || (ord($string[$len]) >= 0xC0)) {
+    return substr($string, 0, $len);
+  }
+  while (ord($string[--$len]) < 0xC0) {};
+  return substr($string, 0, $len);
 }
 
 include_once "includes/theme.inc";

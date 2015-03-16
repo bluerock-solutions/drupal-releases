@@ -278,7 +278,7 @@ function statistics_admin_accesslog_table($type, $id) {
     $user = user_load(array("uid" => $log->uid));
 
     if ($log->url) {
-      $url = "<a href=\"$log->url\" title=\"$log->url\">". (strlen($log->url) > 28 ? substr($log->url, 0, 28) . '...' : $log->url) ."</a>";
+      $url = "<a href=\"$log->url\" title=\"$log->url\">". (strlen($log->url) > 28 ? truncate_utf8($log->url, 28) . '...' : $log->url) ."</a>";
     }
     else {
       $url = message_na();
@@ -326,7 +326,7 @@ function statistics_top_refer() {
   $result = pager_query($query, 50, 0, $query_cnt);
 
   while ($referrer = db_fetch_array($result)) {
-    $rows[] = array("<a href=\"". $referrer["url"] ."\">". substr($referrer["url"], 0, 100) ."</a>", format_date($referrer["last_view"], "small"), $referrer["count"]);
+    $rows[] = array("<a href=\"". $referrer["url"] ."\">". truncate_utf8($referrer["url"], 100) ."</a>", format_date($referrer["last_view"], "small"), $referrer["count"]);
   }
   if ($pager = theme("pager", NULL, 50, 0, tablesort_pager())) {
     $rows[] = array(array("data" => $pager, "colspan" => 3));
@@ -392,14 +392,14 @@ function statistics_settings() {
   $output .= form_group(t("Content viewing counter settings"), $group);
 
   // Popular content block settings
-  $numbers = array_merge(array("0" => t("Disabled")), drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40)));
+  $numbers = array("0" => t("Disabled")) + drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40));
   $group = form_select(t("Number of day's top views to display"), "statistics_block_top_day_num", variable_get("statistics_block_top_day_num", 0), $numbers, t("How many content items to display in \"day\" list.  Requires enabled content viewing counters."));
   $group .= form_select(t("Number of all time views to display"), "statistics_block_top_all_num", variable_get("statistics_block_top_all_num", 0), $numbers, t("How many content items to display in \"all time\" list.  Requires enabled content viewing counters."));
   $group .= form_select(t("Number of most recent views to display"), "statistics_block_top_last_num", variable_get("statistics_block_top_last_num", 0), $numbers, t("How many content items to display in \"recently viewed\" list.  Requires enabled content viewing counters."));
   $output .= form_group(t("\"Popular content\" block settings"), $group);
 
   // Popular content page settings
-  $numbers = array_merge(array("0" => t("Disabled")), drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25)));
+  $numbers = array("0" => t("Disabled")) + drupal_map_assoc(array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25));
   $group = form_textfield(t("Name for link to user page"), "statistics_userpage_link", variable_get("statistics_userpage_link", ""), 20, 40, t("This node generates a user page listing your site's most popular content.  If you specify a name here, a link to the \"Popular content\" page will be added automatically."));
   $group .= form_select(t("Number of day's top views to display"), "statistics_userpage_day_cnt", variable_get("statistics_userpage_day_cnt", 0), $numbers, t("How many content items to display in the \"day\" list.  Requires enabled content viewing counters."));
   $group .= form_select(t("Number of all time top views to display"), "statistics_userpage_all_cnt", variable_get("statistics_userpage_all_cnt", 0), $numbers, t("How many content items to display in the \"all time\" list.  Requires enabled content viewing counters."));
