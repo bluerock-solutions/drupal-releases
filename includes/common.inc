@@ -38,12 +38,9 @@ function drupal_get_breadcrumb() {
   return $breadcrumb;
 }
 
-function drupal_add_link($attributes) {
-  drupal_set_html_head('<link'. drupal_attributes($attributes) ." />\n");
-}
-
 /**
  * Add output to the head tag of the HTML page.
+ * This function can be called as long the headers aren't sent.
  */
 function drupal_set_html_head($data = NULL) {
   static $stored_head = '';
@@ -119,10 +116,38 @@ function drupal_get_headers() {
  */
 
 /**
+ * Prepare a destination query string for use in combination with
+ * drupal_goto().  Used to direct the user back to the referring page
+ * after completing a form.
+ *
+ * @see drupal_goto()
+ */
+function drupal_get_destination() {
+  $destination[] = $_GET['q'];
+  $params = array('from', 'sort', 'order');
+  foreach ($params as $param) {
+    if (isset($_GET[$param])) {
+      $destination[] = "$param=". $_GET[$param];
+    }
+  }
+  return 'destination='. urlencode(implode('&', $destination));
+}
+
+/**
  * Send the user to a different Drupal page.
  *
  * This issues an on-site HTTP redirect. The function makes sure the redirected
  * URL is formatted correctly.
+ *
+ * Usually the redirected URL is constructed from this function's input
+ * parameters.  However you may override that behavior by setting a
+ * <em>destination</em> in either the $_REQUEST-array (i.e. by using
+ * the query string of an URI) or the $_REQUEST['edit']-array (i.e. by
+ * using a hidden form field).  This is used to direct the user back to
+ * the proper page after completing a form.  For example, after editing
+ * a post on the 'admin/node'-page or after having logged on using the
+ * 'user login'-block in a sidebar.  The function drupal_get_destination()
+ * can be used to help set the destination URL.
  *
  * It is advised to use drupal_goto() instead of PHP's header(), because
  * drupal_goto() will append the user's session ID to the URI when PHP is
@@ -137,10 +162,18 @@ function drupal_get_headers() {
  *   The query string component, if any.
  * @param $fragment
  *   The destination fragment identifier (named anchor).
+ *
+ * @see drupal_get_destination()
  */
 function drupal_goto($path = '', $query = NULL, $fragment = NULL) {
-  // Translate &amp; to simply & in the absolute URL.
-  $url = str_replace('&amp;', '&', url($path, $query, $fragment, TRUE));
+  if ($_REQUEST['destination']) {
+    extract(parse_url($_REQUEST['destination']));
+  }
+  else if ($_REQUEST['edit']['destination']) {
+    extract(parse_url($_REQUEST['edit']['destination']));
+  }
+
+  $url = url($path, $query, $fragment, TRUE);
 
   if (ini_get('session.use_trans_sid') && session_id() && !strstr($url, session_id())) {
     $sid = session_name() . '=' . session_id();
@@ -169,7 +202,7 @@ function drupal_goto($path = '', $query = NULL, $fragment = NULL) {
  */
 function drupal_not_found() {
   header('HTTP/1.0 404 Not Found');
-  watchdog('httpd', t('404 error: %page not found.', array('%page' => '<em>'. check_query($_GET['q']) .'</em>')));
+  watchdog('page not found', t('%page not found.', array('%page' => theme('placeholder', $_GET['q']))), WATCHDOG_WARNING);
 
   $path = drupal_get_normal_path(variable_get('site_404', ''));
   $status = MENU_NOT_FOUND;
@@ -179,7 +212,8 @@ function drupal_not_found() {
   }
 
   if ($status != MENU_FOUND) {
-    print theme('page', '', t('Page not found'));
+    drupal_set_title(t('Page not found'));
+    print theme('page', '');
   }
 }
 
@@ -188,6 +222,7 @@ function drupal_not_found() {
  */
 function drupal_access_denied() {
   header('HTTP/1.0 403 Forbidden');
+  watchdog('access denied', t('%page denied access.', array('%page' => theme('placeholder', $_GET['q']))), WATCHDOG_WARNING, l(t('view'), $_GET['q']));
 
   $path = drupal_get_normal_path(variable_get('site_403', ''));
   $status = MENU_NOT_FOUND;
@@ -197,7 +232,8 @@ function drupal_access_denied() {
   }
 
   if ($status != MENU_FOUND) {
-    print theme('page', message_access(), t('Access denied'));
+    drupal_set_title(t('Access denied'));
+    print theme('page', message_access());
   }
 }
 
@@ -223,6 +259,8 @@ function drupal_access_denied() {
  *   data, and redirect status.
  */
 function drupal_http_request($url, $headers = array(), $method = 'GET', $data = NULL, $retry = 3) {
+  $result = new StdClass();
+
   // Parse the URL, and make sure we can handle the schema.
   $uri = parse_url($url);
   switch ($uri['scheme']) {
@@ -337,20 +375,20 @@ function drupal_http_request($url, $headers = array(), $method = 'GET', $data = 
  *  1 = Log errors to database.
  *  2 = Log errors to database and to screen.
  */
-function error_handler($errno, $message, $filename, $line, $variables) {
-  if ($errno & E_ALL ^ E_NOTICE) {
+function error_handler($errno, $message, $filename, $line) {
+  if ($errno & (E_ALL ^ E_NOTICE)) {
     $types = array(1 => 'error', 2 => 'warning', 4 => 'parse error', 8 => 'notice', 16 => 'core error', 32 => 'core warning', 64 => 'compile error', 128 => 'compile warning', 256 => 'user error', 512 => 'user warning', 1024 => 'user notice', 2048 => 'strict warning');
     $entry = $types[$errno] .': '. $message .' in '. $filename .' on line '. $line .'.';
-
-    watchdog('error', t('%error: %message in %file on line %line.', array('%error' => $types[$errno], '%message' => $message, '%file' => $filename, '%line' => $line)));
 
     if (variable_get('error_level', 1) == 1) {
       print '<pre>'. $entry .'</pre>';
     }
+
+    watchdog('php', t('%message in %file on line %line.', array('%error' => $types[$errno], '%message' => $message, '%file' => $filename, '%line' => $line)), WATCHDOG_ERROR);
   }
 }
 
-function _fix_gpc_magic(&$item, $key) {
+function _fix_gpc_magic(&$item) {
   if (is_array($item)) {
     array_walk($item, '_fix_gpc_magic');
   }
@@ -385,7 +423,7 @@ function fix_gpc_magic() {
  */
 function array2object($array) {
   if (is_array($array)) {
-    $object = new stdClass();
+    $object = new StdClass();
     foreach ($array as $key => $value) {
       $object->$key = $value;
     }
@@ -510,15 +548,10 @@ function t($string, $args = 0) {
 }
 
 /**
- * Encode special characters in a string for display as HTML.
- *
- * Note that we'd like to use htmlspecialchars($input, $quotes, 'utf-8')
- * as outlined in the PHP manual, but we can't because there's a bug in
- * PHP < 4.3 that makes it mess up multibyte charsets if we specify the
- * charset. This will be changed later once we make PHP 4.3 a requirement.
+ * Encode special characters in a plain-text string for display as HTML.
  */
-function drupal_specialchars($input, $quotes = ENT_NOQUOTES) {
-  return htmlspecialchars($input, $quotes);
+function check_plain($text) {
+  return htmlspecialchars($text, ENT_QUOTES);
 }
 
 /**
@@ -557,165 +590,92 @@ function valid_email_address($mail) {
  *   TRUE if the URL is in a valid format.
  */
 function valid_url($url, $absolute = FALSE) {
+  $allowed_characters = '[a-z0-9\/:_\-_\.\?\$,~=#&%\+]';
   if ($absolute) {
-    return preg_match("/^(http|https|ftp):\/\/[a-z0-9\/:_\-_\.\?,~=#&%\+]+$/i", $url);
+    return preg_match("/^(http|https|ftp):\/\/". $allowed_characters ."+$/i", $url);
   }
   else {
-    return preg_match("/^[a-z0-9\/:_\-_\.,\+]+$/i", $url);
+    return preg_match("/^". $allowed_characters ."+$/i", $url);
   }
 }
 
 /**
- * @defgroup search Search interface
- * @{
- * The Drupal search interface manages a global search mechanism.
+ * Validate data input by a user.
  *
- * Modules may plug into this system to provide searches of different types of
- * data. Most of the system is handled by search.module, so this must be enabled
- * for all of the search features to work.
- */
-
-/**
- * Format a single result entry of a search query.
+ * Ensures that user data cannot be used to perform attacks on the site.
  *
- * Modules may implement hook_search_item() in order to override this default
- * function to display search results.
- *
- * @param $item
- *   A single search result as returned by hook_search(). The result should be
- *   an array with keys "count", "link", "title", "user", "date", and "keywords".
- * @param $type
- *   The type of item found, such as "user" or "comment".
- */
-function search_item($item, $type) {
-  if (module_hook($type, 'search_item')) {
-    $output = module_invoke($type, 'search_item', $item);
-  }
-  else {
-    $output = ' <dt class="title"><a href="'. $item['link'] .'">'. $item['title'] .'</a></dt>';
-    $output .= ' <dd class="small">' . t($type) . ($item['user'] ? ' - '. $item['user'] : '') .''. ($item['date'] ? ' - '. format_date($item['date'], 'small') : '') .'</dd>';
-  }
-
-  return $output;
-}
-
-/**
- * Render a generic search form.
- *
- * This form must be usable not only within "http://example.com/search", but also
- * as a simple search box (without "Restrict search to", help text, etc.), in the
- * theme's header, and so forth. This means we must provide options to
- * conditionally render certain parts of this form.
- *
- * @param $action
- *   Form action. Defaults to "search".
- * @param $keys
- *   The search string entered by the user, containing keywords for the search.
- * @param $options
- *   Whether to render the optional form fields and text ("Restrict search
- *   to", help text, etc.).
+ * @param $data
+ *   The input to check.
  * @return
- *   An HTML string containing the search form.
+ *   TRUE if the input data is acceptable.
  */
-function search_form($action = '', $keys = '', $options = FALSE) {
-  $edit = $_POST['edit'];
-
-  if (!$action) {
-    $action = url('search');
-  }
-
-  $output = ' <div class="search-form"><br /><input type="text" class="form-text" size="50" value="'. check_form($keys) .'" name="keys" />';
-  $output .= ' <input type="submit" class="form-submit" value="'. t('Search') ."\" />\n";
-
-  if ($options) {
-    $output .= '<br />';
-    $output .= t('Restrict search to') .': ';
-
-    foreach (module_list() as $name) {
-      if (module_hook($name, 'search')) {
-        $output .= ' <input type="checkbox" name="edit[type]['. $name .']" '. ($edit['type'][$name] ? ' checked="checked"' : '') .' /> '. t($name);
+function valid_input_data($data) {
+  if (is_array($data) || is_object($data)) {
+    // Form data can contain a number of nested arrays.
+    foreach ($data as $key => $value) {
+      if (!valid_input_data($key) || !valid_input_data($value)) {
+        return FALSE;
       }
     }
   }
-  $output .= '</div>';
+  else if (isset($data)) {
+    // Detect dangerous input data.
 
-  return form($output, 'post', $action);
-}
+    // Decode all normal character entities.
+    $data = decode_entities($data, array('<', '&', '"'));
 
-/**
- * Perform a global search on the given keys, and return the formatted results.
- */
-function search_data($keys = NULL) {
-  $edit = $_POST['edit'];
-  $output = '';
+    // Check strings:
+    $match  = preg_match('/\Wjavascript\s*:/i', $data);
+    $match += preg_match('/\Wexpression\s*\(/i', $data);
+    $match += preg_match('/\Walert\s*\(/i', $data);
 
-  if (isset($keys)) {
-    foreach (module_list() as $name) {
-      if (module_hook($name, 'search') && (!$edit['type'] || $edit['type'][$name])) {
-        list($title, $results) = module_invoke($name, 'search', $keys);
-        if ($results) {
-          $output .= '<h2>'. $title .'</h2>';
-          $output .= '<dl class="search-results">';
-          foreach ($results as $entry) {
-            $output .= search_item($entry, $name);
-          }
-          $output .= '</dl>';
-        }
-      }
+    // Check attributes:
+    $match += preg_match("/\W(dynsrc|datasrc|data|lowsrc|on[a-z]+)\s*=[^>]+?>/i", $data);
+
+    // Check tags:
+    $match += preg_match("/<\s*(applet|script|object|style|embed|form|blink|meta|html|frame|iframe|layer|ilayer|head|frameset|xml)/i", $data);
+
+    if ($match) {
+      watchdog('security', t('Terminated request because of suspicious input data: %data.', array('%data' => theme('placeholder', $data))));
+      return FALSE;
     }
   }
 
-  return $output;
+  return TRUE;
 }
+/**
+ * @} End of "defgroup validation".
+ */
 
 /**
- * Display a search form for a particular type of data.
+ * Register an event for the current visitor (hostname/IP) to the flood control mechanism.
  *
- * @param $type
- *   The type of content to search within.
- * @param $action
- *   Form action. Defaults to "search".
- * @param $keys
- *   The search string entered by the user, containing keywords for the search.
- * @param $options
- *   Whether to render the optional form fields and text ("Restrict search
- *   to", help text, etc.).
- * @return
- *   An HTML string containing the search form and results.
+ * @param $name
+ *   The name of the event.
  */
-function search_type($type, $action = '', $keys = '', $options = FALSE) {
-  $_POST['edit']['type'][$type] = 'on';
-
-  return search_form($action, $keys, $options) . '<br />'. search_data($keys);
+function flood_register_event($name) {
+  db_query("INSERT INTO {flood} (event, hostname, timestamp) VALUES ('%s', '%s', %d)", $name, $_SERVER['REMOTE_ADDR'], time());
 }
 
 /**
- * @} End of "defgroup search".
+ * Check if the current visitor (hostname/IP) is allowed to proceed with the specified event.
+ * The user is allowed to proceed if he did not trigger the specified event more than
+ * $threshold times per hour.
+ *
+ * @param $name
+ *   The name of the event.
+ * @param $number
+ *   The maximum number of the specified event per hour (per visitor).
+ * @return
+ *   True if the user did not exceed the hourly threshold.  False otherwise.
  */
-
-function check_form($text) {
-  return drupal_specialchars($text, ENT_QUOTES);
+function flood_is_allowed($name, $threshold) {
+  $number = db_num_rows(db_query("SELECT event FROM {flood} WHERE event = '%s' AND hostname = '%s' AND timestamp > %d", $name, $_SERVER['REMOTE_ADDR'], time() - 3600));
+  return ($number < $threshold ? TRUE : FALSE);
 }
 
 function check_file($filename) {
   return is_uploaded_file($filename);
-}
-
-/**
- * Prepare a URL for use in an HTML attribute. Strips harmful protocols.
- *
- */
-function check_url($uri) {
-  return filter_xss_bad_protocol($uri, FALSE);
-}
-
-/**
- * Return the URI of the referring page.
- */
-function referer_uri() {
-  if (isset($_SERVER['HTTP_REFERER'])) {
-    return check_url($_SERVER['HTTP_REFERER']);
-  }
 }
 
 /**
@@ -733,12 +693,12 @@ function format_rss_channel($title, $link, $description, $items, $language = 'en
   // arbitrary elements may be added using the $args associative array
 
   $output = "<channel>\n";
-  $output .= ' <title>'. drupal_specialchars(strip_tags($title)) ."</title>\n";
-  $output .= ' <link>'. drupal_specialchars(strip_tags($link)) ."</link>\n";
-  $output .= ' <description>'. drupal_specialchars(strip_tags($description)) ."</description>\n";
-  $output .= ' <language>'. drupal_specialchars(strip_tags($language)) ."</language>\n";
+  $output .= ' <title>'. check_plain($title) ."</title>\n";
+  $output .= ' <link>'. check_url($link) ."</link>\n";
+  $output .= ' <description>'. check_plain($description) ."</description>\n";
+  $output .= ' <language>'. check_plain($language) ."</language>\n";
   foreach ($args as $key => $value) {
-    $output .= ' <'. $key .'>'. drupal_specialchars(strip_tags($value)) ."</$key>\n";
+    $output .= ' <'. $key .'>'. check_plain($value) ."</$key>\n";
   }
   $output .= $items;
   $output .= "</channel>\n";
@@ -753,11 +713,28 @@ function format_rss_channel($title, $link, $description, $items, $language = 'en
  */
 function format_rss_item($title, $link, $description, $args = array()) {
   $output = "<item>\n";
-  $output .= ' <title>'. drupal_specialchars(strip_tags($title)) ."</title>\n";
-  $output .= ' <link>'. drupal_specialchars(strip_tags($link)) ."</link>\n";
-  $output .= ' <description>'. drupal_specialchars($description) ."</description>\n";
+  $output .= ' <title>'. check_plain($title) ."</title>\n";
+  $output .= ' <link>'. check_url($link) ."</link>\n";
+  $output .= ' <description>'. check_plain($description) ."</description>\n";
   foreach ($args as $key => $value) {
-    $output .= ' <'. $key .'>'. drupal_specialchars(strip_tags($value)) ."</$key>\n";
+    if (is_array($value)) {
+      if ($value['key']) {
+        $output .= ' <'. $value['key'];
+        if (is_array($value['attributes'])) {
+          $output .= drupal_attributes($value['attributes']);
+        }
+
+        if ($value['value']) {
+          $output .= '>'. $value['value'] .'</'. $value['key'] .">\n";
+        }
+        else {
+          $output .= " />\n";
+        }
+      }
+    }
+    else {
+      $output .= ' <'. $key .'>'. check_plain($value) ."</$key>\n";
+    }
   }
   $output .= "</item>\n";
 
@@ -864,7 +841,9 @@ function format_interval($timestamp, $granularity = 2) {
  *   The format to use. Can be "small", "medium" or "large" for the preconfigured
  *   date formats. If "custom" is specified, then $format is required as well.
  * @param $format
- *   A PHP date format string as required by date().
+ *   A PHP date format string as required by date(). A backslash should be used
+ *   before a character to avoid interpreting the character as part of a date
+ *   format.
  * @param $timezone
  *   Time zone offset in seconds; if omitted, the user's time zone is used.
  * @return
@@ -917,6 +896,9 @@ function format_date($timestamp, $type = 'medium', $format = '', $timezone = NUL
     else if ($c == 'Z') {
       $date .= $timezone;
     }
+    else if ($c == '\\') {
+      $date .= $format[++$i];
+    }
     else {
       $date .= $c;
     }
@@ -945,7 +927,12 @@ function format_name($object) {
       $name = $object->name;
     }
 
-    $output = l(check_plain($name), 'user/'. $object->uid, array('title' => t('View user profile.')));
+    if (user_access('access user profiles')) {
+      $output = l($name, 'user/'. $object->uid, array('title' => t('View user profile.')));
+    }
+    else {
+      $output = $name;
+    }
   }
   else if ($object->name) {
     // Sometimes modules display content composed by people who are
@@ -953,10 +940,10 @@ function format_name($object) {
     // aggregator modules). This clause enables modules to display
     // the true author of the content.
     if ($object->homepage) {
-      $output = '<a href="'. check_url($object->homepage) .'">'. check_plain($object->name) .'</a>';
+      $output = '<a href="'. $object->homepage .'">'. $object->name .'</a>';
     }
     else {
-      $output = check_plain($object->name);
+      $output = $object->name;
     }
 
     $output .= ' ('. t('not verified') .')';
@@ -999,7 +986,7 @@ function form($form, $method = 'post', $action = NULL, $attributes = NULL) {
   if (!$action) {
     $action = request_uri();
   }
-  return '<form action="'. $action .'" method="'. $method .'"'. drupal_attributes($attributes) .">\n". $form ."\n</form>\n";
+  return '<form action="'. check_url($action) .'" method="'. $method .'"'. drupal_attributes($attributes) .">\n". $form ."\n</form>\n";
 }
 
 /**
@@ -1067,7 +1054,7 @@ function form_item($title, $value, $description = NULL, $id = NULL, $required = 
  *   A themed HTML string representing the form item group.
  */
 function form_group($legend, $group, $description = NULL) {
-  return '<fieldset>' . ($legend ? '<legend>'. check_plain($legend) .'</legend>' : '') . $group . ($description ? '<div class="description">'. $description .'</div>' : '') . "</fieldset>\n";
+  return '<fieldset>' . ($legend ? '<legend>'. $legend .'</legend>' : '') . $group . ($description ? '<div class="description">'. $description .'</div>' : '') . "</fieldset>\n";
 }
 
 /**
@@ -1091,7 +1078,7 @@ function form_group($legend, $group, $description = NULL) {
  *   A themed HTML string representing the radio button.
  */
 function form_radio($title, $name, $value = 1, $checked = FALSE, $description = NULL, $attributes = NULL, $required = FALSE) {
-  $element = '<input type="radio" class="'. _form_get_class('form-radio', $required, _form_get_error($name)) .'" name="edit['. $name .']" value="'. check_plain($value) .'"'. ($checked ? ' checked="checked"' : '') . drupal_attributes($attributes) .' />';
+  $element = '<input type="radio" class="'. _form_get_class('form-radio', $required, _form_get_error($name)) .'" name="edit['. $name .']" value="'. $value .'"'. ($checked ? ' checked="checked"' : '') . drupal_attributes($attributes) .' />';
   if (!is_null($title)) {
     $element = '<label class="option">'. $element .' '. $title .'</label>';
   }
@@ -1123,7 +1110,7 @@ function form_radios($title, $name, $value, $options, $description = NULL, $requ
   if (count($options) > 0) {
     $choices = '';
     foreach ($options as $key => $choice) {
-      $choices .= '<label class="option"><input type="radio" class="form-radio" name="edit['. $name .']" value="'. check_plain($key) .'"'. ($key == $value ? ' checked="checked"' : ''). drupal_attributes($attributes) .' /> '. $choice .'</label><br />';
+      $choices .= '<label class="option"><input type="radio" class="form-radio" name="edit['. $name .']" value="'. $key .'"'. ($key == $value ? ' checked="checked"' : ''). drupal_attributes($attributes) .' /> '. $choice .'</label><br />';
     }
     return theme('form_element', $title, $choices, $description, NULL, $required, _form_get_error($name));
   }
@@ -1150,7 +1137,7 @@ function form_radios($title, $name, $value, $options, $description = NULL, $requ
  *   A themed HTML string representing the checkbox.
  */
 function form_checkbox($title, $name, $value = 1, $checked = FALSE, $description = NULL, $attributes = NULL, $required = FALSE) {
-  $element = '<input type="checkbox" class="'. _form_get_class('form-checkbox', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'" value="'. check_plain($value) .'"'. ($checked ? ' checked="checked"' : '') . drupal_attributes($attributes) .' />';
+  $element = '<input type="checkbox" class="'. _form_get_class('form-checkbox', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'" value="'. $value .'"'. ($checked ? ' checked="checked"' : '') . drupal_attributes($attributes) .' />';
   if (!is_null($title)) {
     $element = '<label class="option">'. $element .' '. $title .'</label>';
   }
@@ -1187,7 +1174,7 @@ function form_checkboxes($title, $name, $values, $options, $description = NULL, 
     }
     $choices = '';
     foreach ($options as $key => $choice) {
-      $choices .= '<label class="option"><input type="checkbox" class="form-checkbox" name="edit['. $name .'][]" value="'. check_plain($key) .'"'. (in_array($key, $values) ? ' checked="checked"' : ''). drupal_attributes($attributes) .' /> '. $choice .'</label><br />';
+      $choices .= '<label class="option"><input type="checkbox" class="form-checkbox" name="edit['. $name .'][]" value="'. $key .'"'. (in_array($key, $values) ? ' checked="checked"' : ''). drupal_attributes($attributes) .' /> '. $choice .'</label><br />';
     }
     // Note: because unchecked boxes are not included in the POST data, we
     // include a form_hidden() which will be overwritten as soon as there is at
@@ -1220,7 +1207,7 @@ function form_checkboxes($title, $name, $values, $options, $description = NULL, 
  */
 function form_textfield($title, $name, $value, $size, $maxlength, $description = NULL, $attributes = NULL, $required = FALSE) {
   $size = $size ? ' size="'. $size .'"' : '';
-  return theme('form_element', $title, '<input type="text" maxlength="'. $maxlength .'" class="'. _form_get_class('form-text', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'"'. $size .' value="'. check_form($value) .'"'. drupal_attributes($attributes) .' />', $description, 'edit-'. $name, $required, _form_get_error($name));
+  return theme('form_element', $title, '<input type="text" maxlength="'. $maxlength .'" class="'. _form_get_class('form-text', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'"'. $size .' value="'. check_plain($value) .'"'. drupal_attributes($attributes) .' />', $description, 'edit-'. $name, $required, _form_get_error($name));
 }
 
 /**
@@ -1247,7 +1234,7 @@ function form_textfield($title, $name, $value, $size, $maxlength, $description =
  */
 function form_password($title, $name, $value, $size, $maxlength, $description = NULL, $attributes = NULL, $required = FALSE) {
   $size = $size ? ' size="'. $size .'"' : '';
-  return theme('form_element', $title, '<input type="password" class="'. _form_get_class('form-password', $required, _form_get_error($name)) .'" maxlength="'. $maxlength .'" name="edit['. $name .']" id="edit-'. $name .'"'. $size .' value="'. check_form($value) .'"'. drupal_attributes($attributes) .' />', $description, 'edit-'. $name, $required, _form_get_error($name));
+  return theme('form_element', $title, '<input type="password" class="'. _form_get_class('form-password', $required, _form_get_error($name)) .'" maxlength="'. $maxlength .'" name="edit['. $name .']" id="edit-'. $name .'"'. $size .' value="'. check_plain($value) .'"'. drupal_attributes($attributes) .' />', $description, 'edit-'. $name, $required, _form_get_error($name));
 }
 
 /**
@@ -1273,25 +1260,19 @@ function form_password($title, $name, $value, $size, $maxlength, $description = 
  *   A themed HTML string representing the field.
  */
 function form_textarea($title, $name, $value, $cols, $rows, $description = NULL, $attributes = NULL, $required = FALSE) {
-  $output = '';
+  $cols = $cols ? ' cols="'. $cols .'"' : '';
+  $pre = '';
+  $post = '';
 
-  // e.g. optionally plug in a WYSIWYG editor
+  // optionally plug in a WYSIWYG editor
   foreach (module_list() as $module_name) {
     if (module_hook($module_name, 'textarea')) {
-      $output .= module_invoke($module_name, 'textarea', 'pre', $name);
+      $pre  .= module_invoke($module_name, 'textarea', 'pre', $name);
+      $post .= module_invoke($module_name, 'textarea', 'post', $name);
     }
   }
 
-  $output .= theme('form_element', $title, '<textarea wrap="virtual" cols="'. check_plain($cols) .'" rows="'. check_plain($rows) .'" name="edit['. $name .']" id="edit-'. $name .'" class="'. _form_get_class('textarea', $required, _form_get_error($name)) .'"'. drupal_attributes($attributes) .'>'. check_form($value) .'</textarea>', $description, 'edit-'. $name, $required, _form_get_error($name));
-
-  // e.g. optionally plug in a WYSIWYG editor
-  foreach (module_list() as $module_name) {
-    if (module_hook($module_name, 'textarea')) {
-      $output .= module_invoke($module_name, 'textarea', 'post', $name);
-    }
-  }
-
-  return $output;
+  return theme('form_element', $title, $pre .'<textarea wrap="virtual"'. $cols .' rows="'. $rows .'" name="edit['. $name .']" id="edit-'. $name .'" class="'. _form_get_class('textarea', $required, _form_get_error($name)) .'"'. drupal_attributes($attributes) .'>'. check_plain($value) .'</textarea>'. $post, $description, 'edit-'. $name, $required, _form_get_error($name));
 }
 
 /**
@@ -1326,14 +1307,14 @@ function form_select($title, $name, $value, $options, $description = NULL, $extr
   $select = '';
   foreach ($options as $key => $choice) {
     if (is_array($choice)) {
-      $select .= '<optgroup label="'. check_plain($key) .'">';
+      $select .= '<optgroup label="'. $key .'">';
       foreach ($choice as $key => $choice) {
-        $select .= '<option value="'. check_plain($key) .'"'. (is_array($value) ? (in_array($key, $value) ? ' selected="selected"' : '') : ($value == $key ? ' selected="selected"' : '')) .'>'. check_plain($choice) .'</option>';
+        $select .= '<option value="'. $key .'"'. (is_array($value) ? (in_array($key, $value) ? ' selected="selected"' : '') : ($value == $key ? ' selected="selected"' : '')) .'>'. check_plain($choice) .'</option>';
       }
       $select .= '</optgroup>';
     }
     else {
-      $select .= '<option value="'. check_plain($key) .'"'. (is_array($value) ? (in_array($key, $value) ? ' selected="selected"' : '') : ($value == $key ? ' selected="selected"' : '')) .'>'. check_plain($choice) .'</option>';
+      $select .= '<option value="'. $key .'"'. (is_array($value) ? (in_array($key, $value) ? ' selected="selected"' : '') : ($value == $key ? ' selected="selected"' : '')) .'>'. check_plain($choice) .'</option>';
     }
   }
   return theme('form_element', $title, '<select name="edit['. $name .']'. ($multiple ? '[]' : '') .'"'. ($multiple ? ' multiple="multiple" ' : '') . ($extra ? ' '. $extra : '') .' id="edit-'. $name .'">'. $select .'</select>', $description, 'edit-'. $name, $required, _form_get_error($name));
@@ -1359,7 +1340,7 @@ function form_select($title, $name, $value, $options, $description = NULL, $extr
  * provided by file.inc.
  */
 function form_file($title, $name, $size, $description = NULL, $required = FALSE) {
-  return theme('form_element', $title, '<input type="file" class="'. _form_get_class('form-file', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'" size="'. $size ."\" />\n", $description, 'edit-'. $name, $required, _form_get_error($error));
+  return theme('form_element', $title, '<input type="file" class="'. _form_get_class('form-file', $required, _form_get_error($name)) .'" name="edit['. $name .']" id="edit-'. $name .'" size="'. $size ."\" />\n", $description, 'edit-'. $name, $required, _form_get_error($name));
 }
 
 /**
@@ -1377,7 +1358,7 @@ function form_file($title, $name, $size, $description = NULL, $required = FALSE)
  * an attacker to change the value before it is submitted.
  */
 function form_hidden($name, $value) {
-  return '<input type="hidden" name="edit['. $name .']" value="'. check_form($value) ."\" />\n";
+  return '<input type="hidden" name="edit['. $name .']" value="'. check_plain($value) ."\" />\n";
 }
 
 /**
@@ -1396,7 +1377,7 @@ function form_hidden($name, $value) {
  *   A themed HTML string representing the button.
  */
 function form_button($value, $name = 'op', $type = 'submit', $attributes = NULL) {
-  return '<input type="'. $type .'" class="form-'. $type .'" name="'. $name .'" value="'. check_form($value) .'" '. drupal_attributes($attributes) ." />\n";
+  return '<input type="'. $type .'" class="form-'. $type .'" name="'. $name .'" value="'. check_plain($value) .'" '. drupal_attributes($attributes) ." />\n";
 }
 
 /**
@@ -1483,12 +1464,12 @@ function url($path = NULL, $query = NULL, $fragment = NULL, $absolute = FALSE) {
     $fragment = '#'. $fragment;
   }
 
-  $base = ($absolute ? $base_url . '/' : '');
+  $base = ($absolute ? $base_url .'/' : '');
 
   if (variable_get('clean_url', '0') == '0') {
     if (isset($path)) {
       if (isset($query)) {
-        return $base . $script .'?q='. $path .'&amp;'. $query . $fragment;
+        return $base . $script .'?q='. $path .'&'. $query . $fragment;
       }
       else {
         return $base . $script .'?q='. $path . $fragment;
@@ -1535,7 +1516,7 @@ function drupal_attributes($attributes = array()) {
   if ($attributes) {
     $t = array();
     foreach ($attributes as $key => $value) {
-      $t[] = $key .'="'. $value .'"';
+      $t[] = $key .'="'. check_plain($value) .'"';
     }
 
     return ' '. implode($t, ' ');
@@ -1562,10 +1543,12 @@ function drupal_attributes($attributes = array()) {
  * @param $absolute
  *   Whether to force the output to be an absolute link (beginning with http:).
  *   Useful for links that will be displayed outside the site, such as in an RSS feed.
+ * @param $html
+ *   Whether the title is HTML, or just plain-text.
  * @return
  *   an HTML string containing a link to the given path.
  */
-function l($text, $path, $attributes = array(), $query = NULL, $fragment = NULL, $absolute = FALSE) {
+function l($text, $path, $attributes = array(), $query = NULL, $fragment = NULL, $absolute = FALSE, $html = FALSE) {
   if (drupal_get_normal_path($path) == $_GET['q']) {
     if (isset($attributes['class'])) {
       $attributes['class'] .= ' active';
@@ -1574,47 +1557,7 @@ function l($text, $path, $attributes = array(), $query = NULL, $fragment = NULL,
       $attributes['class'] = 'active';
     }
   }
-  return '<a href="'. url($path, $query, $fragment, $absolute) .'"'. drupal_attributes($attributes) .'>'. $text .'</a>';
-}
-
-function field_get($string, $name) {
-  ereg(",$name=([^,]+)", ",$string", $regs);
-  return $regs[1];
-}
-
-function field_set($string, $name, $value) {
-  $rval = ereg_replace(",$name=[^,]+", "", ",$string");
-  if (isset($value)) {
-    $rval .= ($rval == ',' ? '' : ',') . $name .'='. $value;
-  }
-  return substr($rval, 1);
-}
-
-/**
- * Fetch a set of global navigation links.
- *
- * The links are gathered by calls to hook_link('page') in each module.
- */
-function link_page() {
-  global $custom_links;
-
-  if (is_array($custom_links)) {
-    return $custom_links;
-  }
-  else {
-    $links = module_invoke_all('link', 'page');
-    array_unshift($links, l(t('home'), '', array('title' => t('Return to the main page.'))));
-    return $links;
-  }
-}
-
-/**
- * Fetch a set of links to display after a given node.
- *
- * The links are gathered by calls to hook_link('node') in each module.
- */
-function link_node($node, $main = 0) {
-  return module_invoke_all('link', 'node', $node, $main);
+  return '<a href="'. check_url(url($path, $query, $fragment, $absolute)) .'"'. drupal_attributes($attributes) .'>'. ($html ? $text : check_plain($text)) .'</a>';
 }
 
 /**
@@ -1688,29 +1631,15 @@ function drupal_xml_parser_create(&$data) {
   }
 
   // Unsupported encodings are converted here into UTF-8.
-  // Requires the iconv, GNU recode or mbstring PHP extension.
   $php_supported = array('utf-8', 'iso-8859-1', 'us-ascii');
   if (!in_array(strtolower($encoding), $php_supported)) {
-    if (function_exists('iconv')) {
-      $out = @iconv($encoding, 'utf-8', $data);
-    }
-    else if (function_exists('mb_convert_encoding')) {
-      $out = @mb_convert_encoding($data, 'utf-8', $encoding);
-    }
-    else if (function_exists('recode_string')) {
-      $out = @recode_string($encoding . '..utf-8', $data);
-    }
-    else {
-      watchdog('warning', t("Unsupported XML encoding '%s'. Please install iconv, GNU recode or mbstring for PHP.", $encoding));
-      return 0;
-    }
-
+    $out = drupal_convert_to_utf8($data, $encoding);
     if ($out !== false) {
       $data = $out;
       $encoding = 'utf-8';
     }
     else {
-      watchdog('warning', t("Could not convert XML encoding '%s' to UTF-8.", $encoding));
+      watchdog('php', t("Could not convert XML encoding '%s' to UTF-8.", $encoding), WATCHDOG_WARNING);
       return 0;
     }
   }
@@ -1718,6 +1647,36 @@ function drupal_xml_parser_create(&$data) {
   $xml_parser = xml_parser_create($encoding);
   xml_parser_set_option($xml_parser, XML_OPTION_TARGET_ENCODING, 'utf-8');
   return $xml_parser;
+}
+
+/**
+ * Convert data to UTF-8
+ *
+ * Requires the iconv, GNU recode or mbstring PHP extension.
+ *
+ * @param $data
+ *   The data to be converted.
+ * @param $encoding
+ *   The encoding that the data is in
+ * @return
+ *   Converted data or FALSE.
+ */
+function drupal_convert_to_utf8($data, $encoding) {
+  if (function_exists('iconv')) {
+    $out = @iconv($encoding, 'utf-8', $data);
+  }
+  else if (function_exists('mb_convert_encoding')) {
+    $out = @mb_convert_encoding($data, 'utf-8', $encoding);
+  }
+  else if (function_exists('recode_string')) {
+    $out = @recode_string($encoding .'..utf-8', $data);
+  }
+  else {
+    watchdog('php', t("Unsupported encoding '%s'. Please install iconv, GNU recode or mbstring for PHP.", $encoding), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  return $out;
 }
 
 /**
@@ -1735,13 +1694,18 @@ function drupal_xml_parser_create(&$data) {
  *   The string to truncate.
  * @param $len
  *   An upper limit on the returned string length.
+ * @param $wordsafe
+ *   Flag to truncate at nearest space. Defaults to FALSE.
  * @return
  *   The truncated string.
  */
-function truncate_utf8($string, $len) {
+function truncate_utf8($string, $len, $wordsafe = FALSE) {
   $slen = strlen($string);
   if ($slen <= $len) {
     return $string;
+  }
+  if ($wordsafe) {
+    while (($string[--$len] != ' ') && ($len > 0)) {};
   }
   if ((ord($string[$len]) < 0x80) || (ord($string[$len]) >= 0xC0)) {
     return substr($string, 0, $len);
@@ -1753,7 +1717,7 @@ function truncate_utf8($string, $len) {
 /**
  * Encodes MIME/HTTP header values that contain non US-ASCII characters.
  *
- * For example, mime_header_encode('tÃ©st.txt') returns "=?UTF-8?B?dMOpc3QudHh0?=".
+ * For example, mime_header_encode('tést.txt') returns "=?UTF-8?B?dMOpc3QudHh0?=".
  *
  * See http://www.rfc-editor.org/rfc/rfc2047.txt for more information.
  *
@@ -1766,7 +1730,7 @@ function truncate_utf8($string, $len) {
  *   have to be changed to \r\n or \r.
  */
 function mime_header_encode($string, $charset = 'UTF-8') {
-  if (preg_match('/[^\x20-\x7E]/', $string)) {
+  if (!preg_match('/^[\x20-\x7E]*$/', $string)) {
     $chunk_size = 75 - 7 - strlen($charset);
     $chunk_size -= $chunk_size % 4;
     $string = trim(chunk_split(base64_encode($string), $chunk_size, "\n"));
@@ -1777,6 +1741,7 @@ function mime_header_encode($string, $charset = 'UTF-8') {
 
 /**
  * Decode all HTML entities (including numerical ones) to regular UTF-8 bytes.
+ * Double-escaped entities will only be decoded once ("&amp;lt;" becomes "&lt;", not "<").
  *
  * @param $text
  *   The text to decode entities in.
@@ -1789,27 +1754,36 @@ function decode_entities($text, $exclude = array()) {
   // We store named entities in a table for quick processing.
   if (!isset($table)) {
     // Get all named HTML entities.
-    $table = array_flip(get_html_translation_table(HTML_ENTITIES, $special));
+    $table = array_flip(get_html_translation_table(HTML_ENTITIES));
     // PHP gives us ISO-8859-1 data, we need UTF-8.
     $table = array_map('utf8_encode', $table);
+    // Add apostrophe (XML)
+    $table['&apos;'] = "'";
   }
-  $text = strtr($text, array_diff($table, $exclude));
+  $newtable = array_diff($table, $exclude);
 
-  // Any remaining entities are numerical. Use a regexp to replace them.
-  return preg_replace('/&#(x?)([A-Za-z0-9]+);/e', '_decode_entities("$1", "$2", "$0", $exclude)', $text);
+  // Use a regexp to select all entities in one pass, to avoid decoding double-escaped entities twice.
+  return preg_replace('/&(#x?)?([A-Za-z0-9]+);/e', '_decode_entities("$1", "$2", "$0", $newtable, $exclude)', $text);
 }
 
 /**
  * Helper function for decode_entities
  */
-function _decode_entities($hex, $codepoint, $original, $exclude) {
-  if ($hex != '') {
+function _decode_entities($prefix, $codepoint, $original, &$table, &$exclude) {
+  // Named entity
+  if (!$prefix) {
+    if (isset($table[$original])) {
+      return $table[$original];
+    }
+    else {
+      return $original;
+    }
+  }
+  // Hexadecimal numerical entity
+  if ($prefix == '#x') {
     $codepoint = base_convert($codepoint, 16, 10);
   }
-  else {
-    // Decimal numerical entity (strip leading zeros to avoid PHP octal notation)
-    $codepoint = preg_replace('/^0+/', '', $codepoint);
-  }
+  // Encode codepoint as UTF-8 bytes
   if ($codepoint < 0x80) {
     $str = chr($codepoint);
   }
@@ -1828,12 +1802,21 @@ function _decode_entities($hex, $codepoint, $original, $exclude) {
          . chr(0x80 | (($codepoint >> 6)  & 0x3F))
          . chr(0x80 | ( $codepoint        & 0x3F));
   }
+  // Check for excluded characters
   if (in_array($str, $exclude)) {
     return $original;
   }
   else {
     return $str;
   }
+}
+
+/**
+ * Count the amount of characters in a UTF-8 string. This is less than or
+ * equal to the byte count.
+ */
+function string_length(&$text) {
+  return strlen(preg_replace("/[\x80-\xBF]/", '', $text));
 }
 
 /**
@@ -1861,15 +1844,42 @@ function drupal_eval($code) {
   return $output;
 }
 
+/**
+ * Returns the path to a system item (module, theme, etc.).
+ *
+ * @param $type
+ *   The type of the item (i.e. theme, theme_engine, module).
+ * @param $name
+ *   The name of the item for which the path is requested.
+ *
+ * @return
+ *   The path to the requested item.
+ */
+function drupal_get_path($type, $name) {
+  return dirname(drupal_get_filename($type, $name));
+}
+
+/**
+ * Provide a substitute clone() function for PHP4.
+ */
+if (version_compare(phpversion(), '5.0') < 0) {
+  eval('
+    function clone($object) {
+      return $object;
+    }
+  ');
+}
+
+// Set the Drupal custom error handler.
+set_error_handler('error_handler');
+
 include_once 'includes/theme.inc';
 include_once 'includes/pager.inc';
 include_once 'includes/menu.inc';
 include_once 'includes/tablesort.inc';
 include_once 'includes/file.inc';
 include_once 'includes/xmlrpc.inc';
-
-// Set the Drupal custom error handler.
-set_error_handler('error_handler');
+include_once 'includes/image.inc';
 
 // Emit the correct charset HTTP header.
 drupal_set_header('Content-Type: text/html; charset=utf-8');
@@ -1885,10 +1895,19 @@ else {
 // Initialize all enabled modules.
 module_init();
 
+if (!user_access('bypass input data check')) {
+  // We can't use $_REQUEST because it consists of the contents of $_POST,
+  // $_GET and $_COOKIE: if any of the input arrays share a key, only one
+  // value will be verified.
+  if (!valid_input_data($_GET)
+   || !valid_input_data($_POST)
+   || !valid_input_data($_COOKIE)
+   || !valid_input_data($_FILES)) {
+    die('Terminated request because of suspicious input data.');
+  }
+}
+
 // Initialize the localization system.
 $locale = locale_initialize();
-
-// Initialize the enabled theme.
-$theme = init_theme();
 
 ?>

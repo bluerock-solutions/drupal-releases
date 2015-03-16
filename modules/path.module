@@ -12,11 +12,11 @@
 function path_help($section) {
   switch ($section) {
     case 'admin/modules#description':
-      return t('Enables users to rename URLs.');
+      return t('Allows users to rename URLs.');
     case 'admin/path':
-      return t("Drupal provides users complete control over URLs through aliasing.  This feature is typically used to make URLs human-readable or easy to remember.  For example, one could map the relative URL 'node/1' onto 'about'. Each system path can have multiple aliases.");
+      return t("<p>Drupal provides users complete control over URLs through aliasing.  This feature is typically used to make URLs human-readable or easy to remember.  For example, one could map the relative URL 'node/1' onto 'about'. Each system path can have multiple aliases.</p>");
     case 'admin/path/add':
-      return t('Enter the path you wish to create the alias for, followed by the name of the new alias.');
+      return t('<p>Enter the path you wish to create the alias for, followed by the name of the new alias.</p>');
     case 'admin/help#path':
       return t("
 <h3>Background</h3>
@@ -82,7 +82,7 @@ function path_menu($may_cache) {
       'type' => MENU_CALLBACK);
     $items[] = array('path' => 'admin/path/list', 'title' => t('list'),
       'type' => MENU_DEFAULT_LOCAL_TASK, 'weight' => -10);
-    $items[] = array('path' => 'admin/path/add', 'title' => t('add'),
+    $items[] = array('path' => 'admin/path/add', 'title' => t('add alias'),
       'callback' => 'path_admin_edit',
       'access' => user_access('administer url aliases'),
       'type' => MENU_LOCAL_TASK);
@@ -107,14 +107,14 @@ function path_admin_edit($pid = 0) {
   }
   elseif ($pid) {
     $alias = path_load($pid);
-    $title = $alias['dst'];
+    drupal_set_title($alias['dst']);
     $output = path_form(path_load($pid));
   }
   else {
     $output = path_form();
   }
 
-  print theme('page', $output, $title);
+  print theme('page', $output);
 }
 
 /**
@@ -259,13 +259,14 @@ function path_overview() {
   $header = array(
     array('data' => t('Alias'), 'field' => 'dst', 'sort' => 'asc'),
     array('data' => t('System'), 'field' => 'src'),
-    array('data' => t('Operations'), 'colspan' => 2)
+    array('data' => t('Operations'), 'colspan' => '2')
   );
   $sql .= tablesort_sql($header);
   $result = pager_query($sql, 50);
 
+  $destination = drupal_get_destination();
   while ($data = db_fetch_object($result)) {
-    $rows[] = array($data->dst, $data->src, l(t('edit'), "admin/path/edit/$data->pid"), l(t('delete'), "admin/path/delete/$data->pid"));
+    $rows[] = array($data->dst, $data->src, l(t('edit'), "admin/path/edit/$data->pid", array(), $destination), l(t('delete'), "admin/path/delete/$data->pid", array(), $destination));
   }
 
   if ($pager = theme('pager', NULL, 50, 0, tablesort_pager())) {
@@ -295,15 +296,15 @@ function path_save($edit) {
   $pid = $edit['pid'];
 
   if (!valid_url($src)) {
-    form_set_error('src', t('The system path %path is invalid.', array('%path' => "<em>$src</em>")));
+    form_set_error('src', t('The system path %path is invalid.', array('%path' => theme('placeholder', $src))));
   }
 
   if (!valid_url($dst)) {
-    form_set_error('dst', t('The alias %alias is invalid.', array('%alias' => "<em>$dst</em>")));
+    form_set_error('dst', t('The alias %alias is invalid.', array('%alias' => theme('placeholder', $dst))));
   }
 
   if (db_result(db_query("SELECT COUNT(dst) FROM {url_alias} WHERE pid != %d AND dst = '%s'", $pid, $dst))) {
-    form_set_error('dst', t('The alias %alias is already in use.', array('%alias' => "<em>$dst</em>")));
+    form_set_error('dst', t('The alias %alias is already in use.', array('%alias' => theme('placeholder', $dst))));
   }
 
   if (form_get_errors()) {

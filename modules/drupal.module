@@ -21,7 +21,7 @@ function drupal_help($section) {
     case 'admin/modules#description':
       return t('Lets users log in using a Drupal ID and can notify a central server about your site.');
     case 'admin/settings/drupal':
-      return t("Using this your Drupal site can \"call home\" and add itself to the Drupal directory. If you want it to add itself to a different directory server you can change the <a href=\"%xml-rpc-setting\">Drupal XML-RPC server</a> setting -- but the directory server has to be able to handle Drupal XML. To get all your site information listed, go to the <a href=\"%site-settings\">administer &raquo; settings</a> page and set the site name, the e-mail address, the slogan, and the mission statement.", array('%xml-rpc-setting' => url('admin/settings/drupal'), '%site-settings' => url('admin/settings')));
+      return t('<p>Using this your Drupal site can "call home" and add itself to the Drupal directory. If you want it to add itself to a different directory server you can change the <a href="%xml-rpc-setting">Drupal XML-RPC server</a> setting -- but the directory server has to be able to handle Drupal XML. To get all your site information listed, go to the <a href="%site-settings">settings page</a> and set the site name, the e-mail address, the slogan, and the mission statement.</p>', array('%xml-rpc-setting' => url('admin/settings/drupal'), '%site-settings' => url('admin/settings')));
     case 'user/help#drupal':
       return t("<p><a href=\"%Drupal\">Drupal</a> is the name of the software which powers %this-site. There are Drupal web sites all over the world, and many of them share their registration databases so that users may freely login to any Drupal site using a single <strong>Drupal ID</strong>.</p>
 <p>So please feel free to login to your account here at %this-site with a username from another Drupal site. The format of a Drupal ID is similar to an email address: <strong>username</strong>@<em>server</em>. An example of a valid Drupal ID is <strong>mwlily</strong>@<em>www.drupal.org</em>.</p>", array('%Drupal' => 'http://www.drupal.org', '%this-site' => '<em>'. variable_get('site_name', 'this web site') .'</em>'));
@@ -70,15 +70,22 @@ function drupal_cron() {
 /**
  * Callback function from drupal_xmlrpc() called when another site pings this one.
  */
-function drupal_directory_ping($link, $name, $mail, $slogan, $mission) {
+function drupal_directory_ping($arguments) {
 
   /*
   ** Parse our parameters:
   */
 
-  foreach (array('link', 'name', 'mail', 'slogan', 'mission') as $key) {
-    $$key = strip_tags($$key);
-  }
+  $argument = $arguments->getparam(0);
+  $link = strip_tags($argument->scalarval());
+  $argument = $arguments->getparam(1);
+  $name = trim(strip_tags($argument->scalarval()));
+  $argument = $arguments->getparam(2);
+  $mail = strip_tags($argument->scalarval());
+  $argument = $arguments->getparam(3);
+  $slogan = strip_tags($argument->scalarval());
+  $argument = $arguments->getparam(4);
+  $mission = strip_tags($argument->scalarval());
 
   /*
   ** Update the data in our database and send back a reply:
@@ -88,12 +95,12 @@ function drupal_directory_ping($link, $name, $mail, $slogan, $mission) {
     db_query("DELETE FROM {directory} WHERE link = '%s' OR mail = '%s'", $link, $mail);
     db_query("INSERT INTO {directory} (link, name, mail, slogan, mission, timestamp) VALUES ('%s', '%s', '%s', '%s', '%s', %d)", $link, $name, $mail, $slogan, $mission, time());
 
-    watchdog('regular', t('Directory: ping from %name (%link).', array('%name' => "<em>$name</em>", '%link' => "<em>$link</em>")));
+    watchdog('directory ping', t('Ping from %name (%link).', array('%name' => theme('placeholder', $name), '%link' => theme('placeholder', $link))), WATCHDOG_NOTICE, '<a href="'. check_url($link) .'">view</a>');
 
-    return 1;
+    return new xmlrpcresp(new xmlrpcval(1, 'int'));
   }
   else {
-    return 0;
+    return new xmlrpcresp(new xmlrpcval(0, 'int'));
   }
 
 }
@@ -118,17 +125,7 @@ function drupal_directory_page($sort = 'name') {
  * Implementation of hook_xmlrpc().
  */
 function drupal_xmlrpc() {
-  return array(
-    array(
-      'drupal.site.ping',
-      'drupal_directory_ping',
-      array('boolean', 'string', 'string', 'string', 'string', 'string'),
-      t('Handling ping request')),
-    array(
-      'drupal.login',
-      'drupal_login',
-      array('int', 'string', 'string'),
-      t('Logging into a drupal site')));
+  return array('drupal.site.ping' => array('function' => 'drupal_directory_ping'), 'drupal.login' => array('function' => 'drupal_login'));
 }
 
 /**
@@ -141,10 +138,12 @@ function drupal_notify($server) {
 
   $client = new xmlrpc_client($url['path'], $url['host'], 80);
 
-  $result = xmlrpc($server, 'drupal.site.ping', $base_url, variable_get('site_name', ''), variable_get('site_mail', ''), variable_get('site_slogan', ''), variable_get('site_mission', ''));
+  $message = new xmlrpcmsg('drupal.site.ping', array(new xmlrpcval($base_url, 'string'), new xmlrpcval(variable_get('site_name', ''), 'string'), new xmlrpcval(variable_get('site_mail', ''), 'string'), new xmlrpcval(variable_get('site_slogan', ''), 'string'), new xmlrpcval(variable_get('site_mission', ''), 'string')));
 
-  if ($result === FALSE) {
-    watchdog('error', t('Failed to notify %url at %path: %error.', array('%url' => '<em>'. $url["host"] .'</em>', '%path' => '<em>'. $url["path"] .'</em>', '%error' => '<em>'. $result->faultString() .'</em>')));
+  $result = $client->send($message, 5);
+
+  if (!$result || $result->faultCode()) {
+    watchdog('directory ping', t('Failed to notify %url at %path: %error.', array('%url' => theme('placeholder', $url['host']), '%path' => theme('placeholder', $url['path']), '%error' => theme('placeholder', $result->faultString()))), WATCHDOG_WARNING);
   }
 
 }
@@ -168,13 +167,19 @@ function drupal_info($field = 0) {
  * Implementation of hook_auth().
  */
 function drupal_auth($username, $password, $server) {
-  $result = xmlrpc('http://'. $server .'/xmlrpc.php', 'drupal.login', $username, $password);
-  if ($result === FALSE) {
-    drupal_set_message(t('Error %code : %message', array('%code' => theme('placeholder', xmlrpc_errno()), '%message' =>  theme('placeholder', xmlrpc_error_msg()))), 'error');
+
+  $message = new xmlrpcmsg('drupal.login', array(new xmlrpcval($username, 'string'), new xmlrpcval($password, 'string')));
+
+  // TODO remove hard coded Port 80
+  // TODO manage server/path such that HTTP_HOST/xml.rpc.php is not assumed
+  $client = new xmlrpc_client('/xmlrpc.php', $server, 80);
+  $result = $client->send($message, 5);
+  if ($result && !$result->faultCode()) {
+    $value = $result->value();
+    $login = $value->scalarval();
   }
-  else {
-    return $result;
-  }
+
+  return $login;
 }
 
 /**
@@ -194,7 +199,7 @@ function drupal_menu($may_cache) {
  * Menu callback; print Drupal-authentication-specific information from user/help.
  */
 function drupal_page_help() {
-  print theme('page', drupal_help('user/help#drupal'), t('Drupal'));
+  print theme('page', drupal_help('user/help#drupal'));
 }
 
 /**
@@ -202,12 +207,17 @@ function drupal_page_help() {
  *
  * Remote clients are usually other Drupal instances.
  */
-function drupal_login($username, $password) {
+function drupal_login($arguments) {
+  $argument = $arguments->getparam(0);
+  $username = $argument->scalarval();
+  $argument = $arguments->getparam(1);
+  $password = $argument->scalarval();
+
   if ($user = user_load(array('name' => $username, 'pass' => $password, 'status' => 1))) {
-    return $user->uid;
+    return new xmlrpcresp(new xmlrpcval($user->uid, 'int'));
   }
   else {
-    return 0;
+    return new xmlrpcresp(new xmlrpcval(0, 'int'));
   }
 }
 
