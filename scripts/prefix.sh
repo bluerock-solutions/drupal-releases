@@ -1,4 +1,5 @@
 #!/bin/sh
+# $Id$
 
 if [ $# != 2 ]; then
   cat >&2 << EOH
@@ -20,6 +21,6 @@ sed "s/^CREATE TABLE /CREATE TABLE $PRFX/;
      s/^ALTER TABLE /ALTER TABLE $PRFX/;
      s/^CREATE SEQUENCE /CREATE SEQUENCE $PRFX/;
      s/^ALTER SEQUENCE /ALTER SEQUENCE $PRFX/;
-     s/^CREATE INDEX \(.*\) ON /CREATE INDEX \\1 ON $PRFX/;
+     s/^CREATE INDEX \(.*\) ON /CREATE INDEX $PRFX\\1 ON $PRFX/;
      " $2
 

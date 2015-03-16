@@ -1,5 +1,5 @@
 <?php
-/* $Id$ */
+// $Id$
 
 /**
  * @file
@@ -1331,9 +1331,9 @@ function update_96() {
     $ret[] = update_sql("ALTER TABLE {menu} ADD description varchar(255) DEFAULT '' NOT NULL");
   }
   else {
-    $ret[] = update_sql("ALTER TABLE {menu} ADD description smallint");
-    $ret[] = update_sql("ALTER TABLE {menu} ALTER COLUMN description SET DEFAULT '0'");
-    $ret[] = update_sql("UPDATE {menu} SET description = '0'");
+    $ret[] = update_sql("ALTER TABLE {menu} ADD description varchar(255)");
+    $ret[] = update_sql("ALTER TABLE {menu} ALTER COLUMN description SET DEFAULT ''");
+    $ret[] = update_sql("UPDATE {menu} SET description = ''");
     $ret[] = update_sql("ALTER TABLE {menu} ALTER COLUMN description SET NOT NULL");
   }
 
@@ -2384,9 +2384,9 @@ function update_131() {
   elseif ($GLOBALS['db_type'] == 'pgsql') {
     $ret[] = update_sql("ALTER TABLE {locales_source} RENAME location TO location_old");
     $ret[] = update_sql("ALTER TABLE {locales_source} ADD location varchar(255)");
+    $ret[] = update_sql("UPDATE {locales_source} SET location = location_old");
     $ret[] = update_sql("ALTER TABLE {locales_source} ALTER location SET NOT NULL");
     $ret[] = update_sql("ALTER TABLE {locales_source} ALTER location SET DEFAULT ''");
-    $ret[] = update_sql("UPDATE {locales_source} SET location = location_old");
     $ret[] = update_sql("ALTER TABLE {locales_source} DROP location_old");
   }
 

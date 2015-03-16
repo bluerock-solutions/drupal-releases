@@ -538,19 +538,6 @@ function arg($index) {
 }
 
 /**
- * Prepare a URL for use in an HTML attribute.
- *
- * We replace ( and ) with their url-encoded equivalents to prevent XSS attacks.
- */
-function check_url($uri) {
-  $uri = htmlspecialchars($uri, ENT_QUOTES);
-
-  $uri = strtr($uri, array('(' => '%28', ')' => '%29'));
-
-  return $uri;
-}
-
-/**
  * Since request_uri() is only available on Apache, we generate an
  * equivalent using other environment vars.
  */
@@ -634,6 +621,13 @@ function drupal_get_messages() {
   $_SESSION['messages'] = array();
 
   return $messages;
+}
+
+/**
+ * Encode special characters in a plain-text string for display as HTML.
+ */
+function check_plain($text) {
+  return htmlspecialchars($text, ENT_QUOTES);
 }
 
 unset($conf);
