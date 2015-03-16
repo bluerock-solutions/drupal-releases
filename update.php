@@ -59,9 +59,14 @@ function update_page_footer() {
 function update_page() {
   global $user, $sql_updates;
 
-  $edit = $_POST["edit"];
+  if (isset($_POST['edit'])) {
+    $edit = $_POST['edit'];
+  }
+  if (isset($_POST['op'])) {
+    $op = $_POST['op'];
+  }
 
-  switch ($_POST["op"]) {
+  switch ($op) {
     case "Update":
       // make sure we have updates to run.
       print update_page_header("Drupal database update");
@@ -80,6 +85,13 @@ function update_page() {
       print update_page_footer();
       break;
     default:
+      // NOTE: We need the following five lines in order to fix a bug with database.mysql (http://drupal.org/node/15337)
+      //       We should be able to remove them in the future.
+      $result = db_query("SELECT * FROM variable WHERE name = 'update_start' AND value LIKE '%;\"'");
+      if ($variable = db_fetch_object($result)) {
+        $variable->value = unserialize(substr($variable->value, 0, -2) .'";');
+        variable_set('update_start', $variable->value);
+      }
       $start = variable_get("update_start", 0);
       $dates[] = "All";
       $i = 1;

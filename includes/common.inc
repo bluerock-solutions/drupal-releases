@@ -580,8 +580,11 @@ function valid_input_data($data) {
       }
     }
   }
-  else {
+  else if (isset($data)) {
     // Detect dangerous input data.
+
+    // Decode all normal character entities.
+    $data = decode_entities($data, array('<', '&', '"'));
 
     // Check strings:
     $match  = preg_match('/\Wjavascript\s*:/i', $data);
@@ -1801,6 +1804,63 @@ function mime_header_encode($string, $charset = 'UTF-8') {
 }
 
 /**
+ * Decode all HTML entities (including numerical ones) to regular UTF-8 bytes.
+ *
+ * @param $text
+ *   The text to decode entities in.
+ * @param $exclude
+ *   An array of characters which should not be decoded. For example,
+ *   array('<', '&', '"'). This affects both named and numerical entities.
+ */
+function decode_entities($text, $exclude = array()) {
+  static $table;
+  // We store named entities in a table for quick processing.
+  if (!isset($table)) {
+    // Get all named HTML entities.
+    $table = array_flip(get_html_translation_table(HTML_ENTITIES, $special));
+    // PHP gives us ISO-8859-1 data, we need UTF-8.
+    $table = array_map('utf8_encode', $table);
+  }
+  $text = strtr($text, array_diff($table, $exclude));
+
+  // Any remaining entities are numerical. Use a regexp to replace them.
+  return preg_replace('/&#(x?)([A-Za-z0-9]+);/e', '_decode_entities("$1", "$2", "$0", $exclude)', $text);
+}
+
+/**
+ * Helper function for decode_entities
+ */
+function _decode_entities($hex, $codepoint, $original, $exclude) {
+  if ($hex != '') {
+    $codepoint = base_convert($codepoint, 16, 10);
+  }
+  if ($codepoint < 0x80) {
+    $str = chr($codepoint);
+  }
+  else if ($codepoint < 0x800) {
+    $str = chr(0xC0 | ($codepoint >> 6))
+         . chr(0x80 | ($codepoint & 0x3F));
+  }
+  else if ($codepoint < 0x10000) {
+    $str = chr(0xE0 | ( $codepoint >> 12))
+         . chr(0x80 | (($codepoint >> 6) & 0x3F))
+         . chr(0x80 | ( $codepoint       & 0x3F));
+  }
+  else if ($codepoint < 0x200000) {
+    $str = chr(0xF0 | ( $codepoint >> 18))
+         . chr(0x80 | (($codepoint >> 12) & 0x3F))
+         . chr(0x80 | (($codepoint >> 6)  & 0x3F))
+         . chr(0x80 | ( $codepoint        & 0x3F));
+  }
+  if (in_array($str, $exclude)) {
+    return $original;
+  }
+  else {
+    return $str;
+  }
+}
+
+/**
  * Evaluate a string of PHP code.
  *
  * This is a wrapper around PHP's eval(). It uses output buffering to capture both
@@ -1849,8 +1909,14 @@ else {
 // Initialize all enabled modules.
 module_init();
 
-if ($_REQUEST && !user_access('bypass input data check')) {
-  if (!valid_input_data($_REQUEST)) {
+if (!user_access('bypass input data check')) {
+  // We can't use $_REQUEST because it consists of the contents of $_POST,
+  // $_GET and $_COOKIE: if any of the input arrays share a key, only one
+  // value will be verified.
+  if (!valid_input_data($_GET)
+   || !valid_input_data($_POST)
+   || !valid_input_data($_COOKIE)
+   || !valid_input_data($_FILES)) {
     die('Terminated request because of suspicious input data.');
   }
 }

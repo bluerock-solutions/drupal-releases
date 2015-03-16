@@ -201,7 +201,6 @@ CREATE INDEX comments_nid_idx ON comments(nid);
 
 CREATE TABLE node_comment_statistics (
   nid integer NOT NULL,
-  cid integer NOT NULL default '0',
   last_comment_timestamp integer NOT NULL default '0',
   last_comment_name varchar(60)  default NULL,
   last_comment_uid integer NOT NULL default '0',
@@ -749,7 +748,7 @@ INSERT INTO system VALUES ('modules/taxonomy.module','taxonomy','module','',1,0,
 INSERT INTO system VALUES ('themes/bluemarine/xtemplate.xtmpl','bluemarine','theme','themes/engines/xtemplate/xtemplate.engine',1,0,0);
 INSERT INTO system VALUES ('themes/engines/xtemplate/xtemplate.engine','xtemplate','theme_engine','',1,0,0);
 
-INSERT INTO variable(name,value) VALUES('update_start', 's:10:"2004-10-18";');
+INSERT INTO variable(name,value) VALUES('update_start', 's:10:"2004-12-20";');
 INSERT INTO variable(name,value) VALUES('theme_default','s:10:"bluemarine";');
 INSERT INTO users(uid,name,mail) VALUES(0,'','');
 INSERT INTO users_roles(uid,rid) VALUES(0, 1);

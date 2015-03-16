@@ -114,7 +114,7 @@ function user_save($account, $array = array(), $category = 'account') {
           $query .= "$key = '%s', ";
           $v[] = $value;
         }
-        else {
+        else if ($key != 'roles') {
           if ($value === null) {
             // Setting a field to null deletes it from the data column.
             unset($data[$key]);
@@ -484,13 +484,8 @@ function user_block($op = 'list', $delta = 0) {
 
     switch ($delta) {
       case 0:
-
-        if (!$user->uid) {
-          // For usability's sake, avoid showing two login forms on one page.
-          if (arg(0) == 'user' && arg(1) != 'view') {
-            return;
-          }
-
+        // For usability's sake, avoid showing two login forms on one page.
+        if (!$user->uid && !(arg(0) == 'user' && !is_numeric(arg(1)))) {
           $edit = $_POST['edit'];
 
           $output = "<div class=\"user-login-block\">\n";
@@ -524,12 +519,14 @@ function user_block($op = 'list', $delta = 0) {
           $block['content'] = $output;
         }
         return $block;
+
       case 1:
         if ($menu = theme('menu_tree')) {
            $block['subject'] = $user->uid ? $user->name : t('Navigation');
            $block['content'] = '<div class="menu">'. $menu .'</div>';
         }
         return $block;
+
       case 2:
         if (user_access('access content')) {
           $result = db_query_range('SELECT uid, name FROM {users} WHERE status != 0 ORDER BY uid DESC', 0, 5);
@@ -541,8 +538,9 @@ function user_block($op = 'list', $delta = 0) {
 
           $block['subject'] = t('Who\'s new');
           $block['content'] = $output;
-          return $block;
         }
+        return $block;
+
       case 3:
         if (user_access('access content')) {
           // Count users with activity in the past defined period.
@@ -1457,7 +1455,13 @@ function user_admin_role($edit = array()) {
   $id = arg(4);
 
   if ($op == t('Save role')) {
-    db_query("UPDATE {role} SET name = '%s' WHERE rid = %d", $edit['name'], $id);
+    if ($edit['name']) {
+      db_query("UPDATE {role} SET name = '%s' WHERE rid = %d", $edit['name'], $id);
+      drupal_set_message(t('The changes have been saved.'));
+    }
+    else {
+      form_set_error('name', t('You must specify a valid role name.'));
+    }
   }
   else if ($op == t('Delete role')) {
     db_query('DELETE FROM {role} WHERE rid = %d', $id);
@@ -1477,9 +1481,17 @@ function user_admin_role($edit = array()) {
 
     // Users with only the deleted role are put back in the authenticated users pool.
     db_query('UPDATE {users_roles} SET rid = %d WHERE rid = %d', _user_authenticated_id(), $id);
+
+    drupal_set_message(t('The role has been deleted.'));
   }
   else if ($op == t('Add role')) {
-    db_query("INSERT INTO {role} (name) VALUES ('%s')", $edit['name']);
+    if ($edit['name']) {
+      db_query("INSERT INTO {role} (name) VALUES ('%s')", $edit['name']);
+      drupal_set_message(t('The role has been added.'));
+    }
+    else {
+      form_set_error('name', t('You must specify a valid role name.'));
+    }
   }
   else if ($id) {
     // Display the role form.
@@ -1568,7 +1580,6 @@ function user_configure() {
     case t('Add role'):
     case t('Delete role'):
     case t('Save role'):
-      drupal_set_message(t('Your role changes were saved.'));
     case 'role':
       $output = user_admin_role($edit);
       break;
