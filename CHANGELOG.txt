@@ -1,9 +1,14 @@
 // $Id$
 
+Drupal 5.13, 2008-12-10
+-----------------------
+- fixed a variety of small bugs.
+- fixed security issues, (Cross site request forgery and Cross site scripting), see SA-2008-073
+- updated robots.txt and .htaccess to match current file use.
+
 Drupal 5.12, 2008-10-22
 -----------------------
 - fixed security issues, (File inclusion), see SA-2008-067
-
 
 Drupal 5.11, 2008-10-08
 -----------------------
