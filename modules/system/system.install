@@ -1385,7 +1385,7 @@ function system_update_120() {
     list(, $page, $op, $uid) = explode('/', $alias->src);
     if ($page == 'feed') {
       $new = "blog/$uid/feed";
-      update_sql("UPDATE {url_alias} SET src = '%s' WHERE pid = '%s'", $new, $alias->pid);
+      db_query("UPDATE {url_alias} SET src = '%s' WHERE pid = %d", $new, $alias->pid);
     }
   }
 
@@ -3029,7 +3029,7 @@ function system_update_181() {
   switch ($GLOBALS['db_type']) {
     case 'mysql':
     case 'mysqli':
-      $ret[] = update_sql("ALTER TABLE {profile_fields} ADD autocomplete TINYint NOT NULL AFTER visibility ;");
+      $ret[] = update_sql("ALTER TABLE {profile_fields} ADD autocomplete TINYint NOT NULL AFTER visibility");
       break;
     case 'pgsql':
       db_add_column($ret, 'profile_fields', 'autocomplete', 'smallint', array('not null' => TRUE, 'default' => 0));
