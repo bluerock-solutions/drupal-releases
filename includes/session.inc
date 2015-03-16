@@ -31,9 +31,8 @@ function sess_read($key) {
   // Otherwise, if the session is still active, we have a record of the client's session in the database.
   $user = db_fetch_object(db_query("SELECT u.*, s.* FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.sid = '%s'", $key));
 
-  // We found the client's session record and they are an authenticated,
-  // active user.
-  if ($user && $user->uid > 0 && $user->status == 1) {
+  // We found the client's session record and they are an authenticated user
+  if ($user && $user->uid > 0) {
     // This is done to unserialize the data member of $user
     $user = drupal_unpack($user);
 
@@ -45,8 +44,7 @@ function sess_read($key) {
       $user->roles[$role->rid] = $role->name;
     }
   }
-  // We didn't find the client's record (session has expired), or they are
-  // blocked, or they are an anonymous user.
+  // We didn't find the client's record (session has expired), or they are an anonymous user.
   else {
     $session = isset($user->session) ? $user->session : '';
     $user = drupal_anonymous_user($session);
@@ -59,25 +57,30 @@ function sess_write($key, $value) {
   global $user;
 
   // If saving of session data is disabled or if the client doesn't have a session,
-  // and one isn't being created ($value), do nothing. This keeps crawlers out of
-  // the session table. This reduces memory and server load, and gives more useful
-  // statistics. We can't eliminate anonymous session table rows without breaking
-  // the throttle module and the "Who's Online" block.
-  if (!session_save_session() || ($user->uid == 0 && empty($_COOKIE[session_name()]) && empty($value))) {
+  // and one isn't being created ($value), do nothing.
+  if (!session_save_session() || (empty($_COOKIE[session_name()]) && empty($value))) {
     return TRUE;
   }
 
-  db_query("UPDATE {sessions} SET uid = %d, cache = %d, hostname = '%s', session = '%s', timestamp = %d WHERE sid = '%s'", $user->uid, isset($user->cache) ? $user->cache : '', $_SERVER["REMOTE_ADDR"], $value, time(), $key);
-  if (db_affected_rows()) {
-    // TODO: this can be an expensive query. Perhaps only execute it every x minutes. Requires investigation into cache expiration.
-    if ($user->uid) {
-      db_query("UPDATE {users} SET access = %d WHERE uid = %d", time(), $user->uid);
+  $result = db_result(db_query("SELECT COUNT(*) FROM {sessions} WHERE sid = '%s'", $key));
+
+  if (!$result) {
+    // Only save session data when when the browser sends a cookie. This keeps
+    // crawlers out of session table. This reduces memory and server load,
+    // and gives more useful statistics. We can't eliminate anonymous session
+    // table rows without breaking throttle module and "Who's Online" block.
+    if ($user->uid || $value || count($_COOKIE)) {
+      db_query("INSERT INTO {sessions} (sid, uid, cache, hostname, session, timestamp) VALUES ('%s', %d, %d, '%s', '%s', %d)", $key, $user->uid, isset($user->cache) ? $user->cache : '', ip_address(), $value, time());
     }
   }
   else {
-    // If this query fails, another parallel request probably got here first.
-    // In that case, any session data generated in this request is discarded.
-    @db_query("INSERT INTO {sessions} (sid, uid, cache, hostname, session, timestamp) VALUES ('%s', %d, %d, '%s', '%s', %d)", $key, $user->uid, isset($user->cache) ? $user->cache : '', $_SERVER["REMOTE_ADDR"], $value, time());
+    db_query("UPDATE {sessions} SET uid = %d, cache = %d, hostname = '%s', session = '%s', timestamp = %d WHERE sid = '%s'", $user->uid, isset($user->cache) ? $user->cache : '', ip_address(), $value, time(), $key);
+
+    // Last access time is updated no more frequently than once every 180 seconds.
+    // This reduces contention in the users table.
+    if ($user->uid && time() - $user->access > variable_get('session_write_interval', 180)) {
+      db_query("UPDATE {users} SET access = %d WHERE uid = %d", time(), $user->uid);
+    }
   }
 
   return TRUE;
@@ -157,7 +160,7 @@ function sess_gc($lifetime) {
  *
  * This function allows the caller to temporarily disable writing of session data,
  * should the request end while performing potentially dangerous operations, such as
- * manipulating the global $user object.
+ * manipulating the global $user object.  See http://drupal.org/node/218104 for usage
  *
  * @param $status
  *   Disables writing of session data when FALSE, (re-)enables writing when TRUE.

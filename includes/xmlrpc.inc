@@ -1,13 +1,14 @@
 <?php
 // $Id$
 
-/*
-  Drupal XML-RPC library. Based on the IXR - The Incutio XML-RPC Library - (c) Incutio Ltd 2002-2005
-   Version 1.7 (beta) - Simon Willison, 23rd May 2005
-   Site:   http://scripts.incutio.com/xmlrpc/
-   Manual: http://scripts.incutio.com/xmlrpc/manual.php
-   This version is made available under the GNU GPL License
-*/
+/**
+ * @file
+ * Drupal XML-RPC library. Based on the IXR - The Incutio XML-RPC Library - (c) Incutio Ltd 2002-2005
+ * Version 1.7 (beta) - Simon Willison, 23rd May 2005
+ * Site:   http://scripts.incutio.com/xmlrpc/
+ * Manual: http://scripts.incutio.com/xmlrpc/manual.php
+ * This version is made available under the GNU GPL License
+ */
 
 /**
  * Recursively turn a data structure into objects with 'data' and 'type' attributes.
@@ -114,7 +115,7 @@ function xmlrpc_value_get_xml($xmlrpc_value) {
       $return = '<struct>'."\n";
       foreach ($xmlrpc_value->data as $name => $value) {
         $return .= "  <member><name>". check_plain($name) ."</name><value>";
-        $return .= xmlrpc_value_get_xml($value)."</value></member>\n";
+        $return .= xmlrpc_value_get_xml($value) ."</value></member>\n";
       }
       $return .= '</struct>';
       return $return;
@@ -162,11 +163,9 @@ function xmlrpc_message_parse(&$xmlrpc_message) {
     return FALSE;
   }
   $xmlrpc_message->_parser = xml_parser_create();
-  // Set XML parser to take the case of tags into account
+  // Set XML parser to take the case of tags into account.
   xml_parser_set_option($xmlrpc_message->_parser, XML_OPTION_CASE_FOLDING, FALSE);
   // Set XML parser callback functions
-  /* Do not set object. $xmlrpc_message does not have member functions any more
-  xml_set_object($xmlrpc_message->_parser, $xmlrpc_message); */
   xml_set_element_handler($xmlrpc_message->_parser, 'xmlrpc_message_tag_open', 'xmlrpc_message_tag_close');
   xml_set_character_data_handler($xmlrpc_message->_parser, 'xmlrpc_message_cdata');
   xmlrpc_message_set($xmlrpc_message);
@@ -207,7 +206,7 @@ function xmlrpc_message_tag_open($parser, $tag, $attr) {
   $xmlrpc_message = xmlrpc_message_get();
   $xmlrpc_message->current_tag_contents = '';
   $xmlrpc_message->last_open = $tag;
-  switch($tag) {
+  switch ($tag) {
     case 'methodCall':
     case 'methodResponse':
     case 'fault':
@@ -235,7 +234,7 @@ function xmlrpc_message_cdata($parser, $cdata) {
 function xmlrpc_message_tag_close($parser, $tag) {
   $xmlrpc_message = xmlrpc_message_get();
   $value_flag = FALSE;
-  switch($tag) {
+  switch ($tag) {
     case 'int':
     case 'i4':
       $value = (int)trim($xmlrpc_message->current_tag_contents);
@@ -343,22 +342,20 @@ EOD;
 }
 
 
-function xmlrpc_error($code = NULL, $message = NULL, $reset = FALSE) {
+function xmlrpc_error($code = NULL, $message = NULL) {
   static $xmlrpc_error;
   if (isset($code)) {
     $xmlrpc_error = new stdClass();
     $xmlrpc_error->is_error = TRUE;
     $xmlrpc_error->code = $code;
     $xmlrpc_error->message = $message;
-  }
-  elseif ($reset) {
-    $xmlrpc_error = NULL;
+    module_invoke('system', 'check_http_request');
   }
   return $xmlrpc_error;
 }
 
 function xmlrpc_error_get_xml($xmlrpc_error) {
-    return <<<EOD
+  return <<<EOD
 <methodResponse>
   <fault>
   <value>
@@ -393,6 +390,7 @@ function xmlrpc_date($time) {
     $xmlrpc_date->iso8601 = date('Ymd\TH:i:s', $time);
   }
   else {
+    $xmlrpc_date->iso8601 = $time;
     $time = str_replace(array('-', ':'), '', $time);
     $xmlrpc_date->year = substr($time, 0, 4);
     $xmlrpc_date->month = substr($time, 4, 2);
@@ -400,7 +398,6 @@ function xmlrpc_date($time) {
     $xmlrpc_date->hour = substr($time, 9, 2);
     $xmlrpc_date->minute = substr($time, 11, 2);
     $xmlrpc_date->second = substr($time, 13, 2);
-    $xmlrpc_date->iso8601 = $time;
   }
   return $xmlrpc_date;
 }
@@ -430,12 +427,11 @@ function xmlrpc_base64_get_xml($xmlrpc_base64) {
 function _xmlrpc() {
   $args = func_get_args();
   $url = array_shift($args);
-  xmlrpc_clear_error();
   if (is_array($args[0])) {
     $method = 'system.multicall';
     $multicall_args = array();
     foreach ($args[0] as $call) {
-      $multicall_args[] = array('methodName' => array_shift($call),'params' => $call);
+      $multicall_args[] = array('methodName' => array_shift($call), 'params' => $call);
     }
     $args = array($multicall_args);
   }
@@ -478,11 +474,4 @@ function xmlrpc_errno() {
 function xmlrpc_error_msg() {
   $error = xmlrpc_error();
   return $error->message;
-}
-
-/**
- * Clears any previous error.
- */
-function xmlrpc_clear_error() {
-  xmlrpc_error(NULL, NULL, TRUE);
 }
