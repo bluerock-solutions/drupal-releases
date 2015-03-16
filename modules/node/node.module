@@ -1150,7 +1150,7 @@ function node_search($op = 'search', $keys = NULL) {
 
     case 'status':
       $total = db_result(db_query('SELECT COUNT(*) FROM {node} WHERE status = 1'));
-      $remaining = db_result(db_query("SELECT COUNT(*) FROM {node} n LEFT JOIN {search_dataset} d ON d.type = 'node' AND d.sid = n.nid WHERE d.sid IS NULL OR d.reindex <> 0"));
+      $remaining = db_result(db_query("SELECT COUNT(*) FROM {node} n LEFT JOIN {search_dataset} d ON d.type = 'node' AND d.sid = n.nid WHERE n.status = 1 AND (d.sid IS NULL OR d.reindex <> 0)"));
       return array('remaining' => $remaining, 'total' => $total);
 
     case 'admin':
@@ -1447,6 +1447,7 @@ function node_menu() {
     'title' => 'Add content type',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('node_type_form'),
+    'access arguments' => array('administer content types'),
     'file' => 'content_types.inc',
     'type' => MENU_LOCAL_TASK,
   );
@@ -1485,6 +1486,7 @@ function node_menu() {
       'title' => $type->name,
       'page callback' => 'drupal_get_form',
       'page arguments' => array('node_type_form', $type),
+      'access arguments' => array('administer content types'),
       'file' => 'content_types.inc',
       'type' => MENU_CALLBACK,
     );
@@ -1495,6 +1497,7 @@ function node_menu() {
     $items['admin/content/node-type/'. $type_url_str .'/delete'] = array(
       'title' => 'Delete',
       'page arguments' => array('node_type_delete_confirm', $type),
+      'access arguments' => array('administer content types'),
       'file' => 'content_types.inc',
       'type' => MENU_CALLBACK,
     );
@@ -1545,6 +1548,8 @@ function node_menu() {
     'load arguments' => array(3),
     'page callback' => 'node_show',
     'page arguments' => array(1, NULL, TRUE),
+    'access callback' => '_node_revision_access',
+    'access arguments' => array(1),
     'type' => MENU_CALLBACK,
   );
   $items['node/%node/revisions/%/revert'] = array(

@@ -1103,7 +1103,7 @@ function theme_links($links, $attributes = array('class' => 'links')) {
       if ($i == $num_links) {
         $class .= ' last';
       }
-      if (isset($link['href']) && $link['href'] == $_GET['q']) {
+      if (isset($link['href']) && ($link['href'] == $_GET['q'] || ($link['href'] == '<front>' && drupal_is_front_page()))) {
         $class .= ' active';
       }
       $output .= '<li class="'. $class .'">';
@@ -1552,7 +1552,7 @@ function theme_username($object) {
     }
 
     if (user_access('access user profiles')) {
-      $output = l($name, 'user/'. $object->uid, array('title' => t('View user profile.')));
+      $output = l($name, 'user/'. $object->uid, array('attributes' => array('title' => t('View user profile.'))));
     }
     else {
       $output = check_plain($name);

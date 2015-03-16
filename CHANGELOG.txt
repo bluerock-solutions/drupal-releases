@@ -1,5 +1,10 @@
 // $Id$
 
+Drupal 6.2, 2008-04-09 
+----------------------
+- fixed a variety of small bugs
+- fixed a security issue (Access bypasses), see SA-2008-026
+
 Drupal 6.1, 2008-02-27
 ----------------------
 - fixed a variety of small bugs.
