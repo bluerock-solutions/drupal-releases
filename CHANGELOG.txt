@@ -1,5 +1,10 @@
 // $Id$
 
+Drupal 5.16, 2009-02-25
+-----------------------
+- Fixed a security issue, (Local file inclusion on Windows), see SA-CORE-2009-004.
+- Fixed a variety of small bugs.
+
 Drupal 5.15, 2009-01-14
 -----------------------
 - Fixed security issues, (Hardening against SQL injection), see
@@ -7,7 +12,6 @@ Drupal 5.15, 2009-01-14
 - Fixed HTTP_HOST checking to work again with HTTP 1.0 clients and basic shell
   scripts.
 - Fixed a variety of small bugs.
-
 
 Drupal 5.14, 2008-12-11
 -----------------------
