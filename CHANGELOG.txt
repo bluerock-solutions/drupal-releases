@@ -1,5 +1,10 @@
 // $Id$
 
+Drupal 6.1, 2008-02-27
+----------------------
+- fixed a variety of small bugs.
+- fixed a security issue (Cross site scripting), see SA-2008-018
+
 Drupal 6.0, 2008-02-13
 ----------------------
 - New, faster and better menu system.
