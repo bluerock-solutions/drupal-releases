@@ -9,8 +9,6 @@
 /**
  * Initialize all modules.
  *
- * To change the required set of modules, change this function as well as
- * system_listing() and module_list().
  */
 function module_init() {
   module_load_all();
@@ -43,7 +41,7 @@ function module_list($refresh = FALSE, $bootstrap = FALSE) {
   static $list;
 
   if ($refresh) {
-    unset($list);
+    $list = array();
   }
 
   if (!$list) {
@@ -88,7 +86,7 @@ function module_set_filename($module, $path = null) {
     $list[$module] = $path;
   }
   else {
-    return $list[$module] ? $list[$module] : "modules/$module.module";
+    return array_key_exists($module, $list) ? $list[$module] : "modules/$module.module";
   }
 }
 
@@ -117,17 +115,17 @@ function module_get_path($module) {
 }
 
 /**
- * Load a module into Drupal, but check first wether a module by the same name
+ * Load a module into Drupal, but check first whether a module by the same name
  * has been loaded, and that the filename being included exists.
  * @param $module
  *   The name of the module to be loaded.
  * @return
- *   TRUE if the load was successfull.
+ *   TRUE if the load was successful.
  */
 function module_load($module) {
   static $loaded = array();
 
-  if (!$loaded[$module]) {
+  if (!array_key_exists($module, $loaded)) {
     $filename = module_get_filename($module);
     if (file_exists($filename)) {
       include_once($filename);
@@ -146,7 +144,7 @@ function module_load($module) {
  *   TRUE if all modules were loaded successfully
  */
 function module_load_all() {
-  $list = module_list();
+  $list = module_list(TRUE, FALSE);
   $status = true;
   foreach ($list as $module) {
     $status &= module_load($module);

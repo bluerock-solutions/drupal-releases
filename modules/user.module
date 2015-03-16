@@ -307,13 +307,13 @@ function user_access($string, $account = NULL) {
   global $user;
   static $perm = array();
 
-  // User #1 has all priveleges:
-  if ($user->uid == 1) {
-    return 1;
-  }
-
   if (is_null($account)) {
     $account = $user;
+  }
+
+  // User #1 has all privileges:
+  if ($account->uid == 1) {
+    return 1;
   }
 
   // To reduce the number of SQL queries, we cache the user's permissions
@@ -340,7 +340,7 @@ function user_mail($mail, $subject, $message, $header) {
   else {
     /*
     ** Note: if you are having problems with sending mail, or mails look wrong
-    ** when they are recieved you may have to modify the str_replace to suit
+    ** when they are received you may have to modify the str_replace to suit
     ** your systems.
     **  - \r\n will work under dos and windows.
     **  - \n will work for linux, unix and BSDs.
@@ -596,7 +596,7 @@ function theme_user_picture($account) {
     }
 
     if ($picture) {
-      $alt = t('%user\'s picture', array('%user' => $account->name ? $account->name : t(variable_get('anonymous', 'Anonymous'))));
+      $alt = t('%user\'s picture', array('%user' => $account->name ? $account->name : variable_get('anonymous', 'Anonymous')));
       $picture = theme('image', $picture, $alt, $alt, '', false);
       if ($account->uid) {
         $picture = l($picture, "user/$account->uid", array('title' => t('View user profile.')));
@@ -792,11 +792,6 @@ function user_login($edit = array(), $msg = '') {
       db_query("UPDATE {users} SET changed = '%d' WHERE uid = '%s'", time(), $user->uid);
 
       user_module_invoke('login', $edit, $user);
-
-      // If the user wants to be remembered, set the proper cookie such
-      // that the session won't expire.
-      $path = preg_replace("/.+\/\/[^\/]+(.*)/", "\$1/", $base_url);
-      setcookie(session_name(), session_id(), FALSE, $path);
 
       // Redirect the user to the page he logged on from.
       drupal_goto($edit['destination']);
@@ -1297,7 +1292,7 @@ function user_admin_create($edit = array()) {
 
   if ($edit) {
     // Because the admin form doesn't have roles selection they need to be set to validate properly
-    $edit['roles'] = array(_user_authenticated_id());
+    $edit['roles'] = array(_user_authenticated_id() => 'authenticated user');
     user_module_invoke('validate', $edit, $edit, 'account');
 
     if (!form_get_errors()) {

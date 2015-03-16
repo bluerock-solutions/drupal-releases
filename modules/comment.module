@@ -329,7 +329,7 @@ function comment_configure() {
   $output = form_group(t('Comment viewing options'), $group);
 
   $group  = form_radios(t('Anonymous poster settings'), 'comment_anonymous', variable_get('comment_anonymous', 0), array(t('Anonymous posters may not enter their contact information'), t('Anonymous posters may leave their contact information'), t('Anonymous posters must leave their contact information')), t('This feature is only useful if you allow anonymous users to post comments.  See the <a href="%url">permissions page</a>.', array('%url' => url('admin/user/configure/permission'))));
-  $group .= form_radios(t('Comment subject field'), 'comment_subject_field', variable_get('comment_subject_field', 1), array(t('Disabled'), t('Enabled')), t('Must users provide a subject for their comments?'));
+  $group .= form_radios(t('Comment subject field'), 'comment_subject_field', variable_get('comment_subject_field', 1), array(t('Disabled'), t('Enabled')), t('Can users provide a unique subject for their comments?'));
   $group .= form_radios(t('Preview comment'), 'comment_preview', variable_get('comment_preview', 1), array(t('Optional'), t('Required')));
   $group .= form_radios(t('Location of comment submission form'), 'comment_form_location', variable_get('comment_form_location', 0), array(t('Display on separate page'), t('Display below post or comments')));
   $output .= form_group(t('Comment posting settings'), $group);
@@ -1438,11 +1438,9 @@ function theme_comment_form($edit, $title) {
   $form .= form_hidden('pid', $edit['pid']);
   $form .= form_hidden('nid', $edit['nid']);
 
-  if (variable_get('comment_preview', 1)) {
-    $form .= form_submit(t('Preview comment'));
-  }
+  $form .= form_submit(t('Preview comment'));
 
-  if (!form_get_errors()) {
+  if (!variable_get('comment_preview', 1) || ($_POST['op'] == t('Preview comment') && !form_get_errors())) {
     $form .= form_submit(t('Post comment'));
   }
 
@@ -1503,7 +1501,7 @@ function theme_comment_threshold($threshold) {
   $result = db_query('SELECT fid, filter FROM {moderation_filters} ');
   $options .= ' <option value="0">'. t('-- threshold --') .'</option>';
   while ($filter = db_fetch_object($result)) {
-    $filters .= " <option value=\"$filter->fid\"". ($threshold == $filter->fid ? ' selected="selected"' : '') .'>'. t($filter->filter) .'</option>';
+    $filters .= " <option value=\"$filter->fid\"". ($threshold == $filter->fid ? ' selected="selected"' : '') .'>'. $filter->filter .'</option>';
   }
 
   if ($filters) {

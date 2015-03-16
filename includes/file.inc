@@ -44,7 +44,7 @@ function file_create_url($path) {
  * file system directory, if it is not prepend the
  * file system directory.
  *
- * @param $dest Path to verifiy
+ * @param $dest Path to verify
  * @return Path to file with file system directory appended if necessary.
  */
 function file_create_path($dest = 0) {
@@ -132,6 +132,7 @@ function file_check_upload($source) {
     }
   }
   elseif ($_FILES["edit"]["name"][$source] && is_uploaded_file($_FILES["edit"]["tmp_name"][$source])) {
+    $file = new stdClass();
     $file->filename = trim(basename($_FILES["edit"]["name"][$source]), '.');
     $file->filemime = $_FILES["edit"]["type"][$source];
     $file->filepath = $_FILES["edit"]["tmp_name"][$source];
@@ -252,7 +253,7 @@ function file_copy(&$source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
       }
     }
 
-    if (!copy($source, $dest)) {
+    if (!@copy($source, $dest)) {
       drupal_set_message(t('File copy failed.'), 'error');
       return 0;
     }
@@ -355,7 +356,7 @@ function file_save_upload($source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
       }
     }
 
-    if (!valid_input_data($file)) {
+    if (!user_access('bypass input data check') && !valid_input_data($file)) {
       watchdog('error', t('Possible exploit abuse: invalid data.'));
       drupal_set_message(t('File upload failed: invalid data.'), 'error');
       return 0;
@@ -398,8 +399,8 @@ function file_save_upload($source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
  *
  * @return A string containing the resulting filename or 0 on error
  */
-function file_save_data($data, $dest, $replace = 0) {
-  if (!valid_input_data($data)) {
+function file_save_data($data, $dest, $replace = FILE_EXISTS_RENAME) {
+  if (!user_access('bypass input data check') && !valid_input_data($data)) {
     watchdog('error', t('Possible exploit abuse: invalid data.'));
     drupal_set_message(t('File upload failed: invalid data.'), 'error');
     return 0;
