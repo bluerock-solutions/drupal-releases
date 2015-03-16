@@ -370,7 +370,7 @@ function forum_validate($node) {
  * Implementation of hook_update().
  */
 function forum_update($node) {
-  if ($node->is_new || $node->revision) {
+  if ($node->revision) {
     db_query("INSERT INTO {forum} (nid, vid, tid) VALUES (%d, %d, %d)", $node->nid, $node->vid, $node->tid);
   }
   else {
@@ -1073,6 +1073,10 @@ function theme_forum_topic_navigation($node) {
 
     if ($prev) {
       $output .= l(t('‹ ') . $prev->title, 'node/'. $prev->nid, array('class' => 'topic-previous', 'title' => t('Go to previous forum topic')));
+    }
+    if ($prev && $next) {
+      // Word break (a is an inline element)
+      $output .= ' ';
     }
     if ($next) {
       $output .= l($next->title . t(' ›'), 'node/'. $next->nid, array('class' => 'topic-next', 'title' => t('Go to next forum topic')));

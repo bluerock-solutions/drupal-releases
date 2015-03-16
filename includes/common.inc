@@ -173,7 +173,7 @@ function drupal_query_string_encode($query, $exclude = array(), $parent = '') {
   $params = array();
 
   foreach ($query as $key => $value) {
-    $key = urlencode($key);
+    $key = drupal_urlencode($key);
     if ($parent) {
       $key = $parent .'['. $key .']';
     }
@@ -186,7 +186,7 @@ function drupal_query_string_encode($query, $exclude = array(), $parent = '') {
       $params[] = drupal_query_string_encode($value, $exclude, $key);
     }
     else {
-      $params[] = $key .'='. urlencode($value);
+      $params[] = $key .'='. drupal_urlencode($value);
     }
   }
 
@@ -717,9 +717,7 @@ function format_rss_channel($title, $link, $description, $items, $language = 'en
   // escaped source data (such as &amp becoming &amp;amp;).
   $output .= ' <description>'. check_plain(decode_entities(strip_tags($description))) ."</description>\n";
   $output .= ' <language>'. check_plain($language) ."</language>\n";
-  foreach ($args as $key => $value) {
-    $output .= ' <'. $key .'>'. check_plain($value) ."</$key>\n";
-  }
+  $output .= format_xml_elements($args);
   $output .= $items;
   $output .= "</channel>\n";
 
@@ -736,16 +734,37 @@ function format_rss_item($title, $link, $description, $args = array()) {
   $output .= ' <title>'. check_plain($title) ."</title>\n";
   $output .= ' <link>'. check_url($link) ."</link>\n";
   $output .= ' <description>'. check_plain($description) ."</description>\n";
-  foreach ($args as $key => $value) {
-    if (is_array($value)) {
+  $output .= format_xml_elements($args);
+  $output .= "</item>\n";
+
+  return $output;
+}
+
+/**
+ * Format XML elements.
+ *
+ * @param $array
+ *   An array where each item represent an element and is either a:
+ *   - (key => value) pair (<key>value</key>)
+ *   - Associative array with fields:
+ *     - 'key': element name
+ *     - 'value': element contents
+ *     - 'attributes': associative array of element attributes
+ *
+ * In both cases, 'value' can be a simple string, or it can be another array
+ * with the same format as $array itself for nesting.
+ */
+function format_xml_elements($array) {
+  foreach ($array as $key => $value) {
+    if (is_numeric($key)) {
       if ($value['key']) {
         $output .= ' <'. $value['key'];
         if (isset($value['attributes']) && is_array($value['attributes'])) {
           $output .= drupal_attributes($value['attributes']);
         }
 
-        if ($value['value']) {
-          $output .= '>'. $value['value'] .'</'. $value['key'] .">\n";
+        if ($value['value'] != '') {
+          $output .= '>'. (is_array($value['value']) ? format_xml_tags($value['value']) : check_plain($value['value'])) .'</'. $value['key'] .">\n";
         }
         else {
           $output .= " />\n";
@@ -753,11 +772,9 @@ function format_rss_item($title, $link, $description, $args = array()) {
       }
     }
     else {
-      $output .= ' <'. $key .'>'. check_plain($value) ."</$key>\n";
+      $output .= ' <'. $key .'>'. (is_array($value) ? format_xml_tags($value) : check_plain($value)) ."</$key>\n";
     }
   }
-  $output .= "</item>\n";
-
   return $output;
 }
 
@@ -1284,11 +1301,25 @@ function drupal_to_js($var) {
  * are urlencoded() when passed through url() and do not require urlencoding()
  * of individual components.
  *
+ * Notes:
+ * - For esthetic reasons, we do not escape slashes. This also avoids a 'feature'
+ *   in Apache where it 404s on any path containing '%2F'.
+ * - mod_rewrite's unescapes %-encoded ampersands and hashes when clean URLs
+ *   are used, which are interpreted as delimiters by PHP. These characters are
+ *   double escaped so PHP will still see the encoded version.
+ *
  * @param $text
  *   String to encode
  */
 function drupal_urlencode($text) {
-  return str_replace('%2F', '/', urlencode($text));
+  if (variable_get('clean_url', '0')) {
+    return str_replace(array('%2F', '%26', '%23'),
+                       array('/', '%2526', '%2523'),
+                       urlencode($text));
+  }
+  else {
+    return str_replace('%2F', '/', urlencode($text));    
+  }
 }
 
 /**
@@ -1341,12 +1372,15 @@ function _drupal_bootstrap_full() {
   drupal_set_header('Content-Type: text/html; charset=utf-8');
   // Detect string handling method
   unicode_check();
-  // Initialize all enabled modules.
-  module_init();
   // Undo magic quotes
   fix_gpc_magic();
-  // Initialize the localization system.
+  // Load all enabled modules
+  module_load_all();
+  // Initialize the localization system. Depends on i18n.module being loaded already.
   $locale = locale_initialize();
+  // Let all modules take action before menu system handles the reqest
+  module_invoke_all('init');
+
 }
 
 /**

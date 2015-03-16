@@ -201,7 +201,6 @@ function taxonomy_form_vocabulary($edit = array()) {
   $form['help'] = array('#type' => 'textfield',
     '#title' => t('Help text'),
     '#default_value' => $edit['help'],
-    '#maxlength' => 255,
     '#description' => t('Instructions to present to the user when choosing a term.'),
   );
   $form['nodes'] = array('#type' => 'checkboxes',
@@ -1216,7 +1215,7 @@ function taxonomy_term_page($str_tids = '', $depth = 0, $op = 'page') {
     }
 
     if ($names) {
-      drupal_set_title($title = implode(', ', $names));
+      drupal_set_title($title = check_plain(implode(', ', $names)));
 
       switch ($op) {
         case 'page':
@@ -1347,7 +1346,7 @@ function taxonomy_autocomplete($vid, $string = '') {
   // Fetch last tag
   $last_string = trim(array_pop($array));
   if ($last_string != '') {
-    $result = db_query_range("SELECT name FROM {term_data} WHERE vid = %d AND LOWER(name) LIKE LOWER('%%%s%%')", $vid, $last_string, 0, 10);
+    $result = db_query_range(db_rewrite_sql("SELECT t.tid, t.name FROM {term_data} t WHERE t.vid = %d AND LOWER(t.name) LIKE LOWER('%%%s%%')", 't', 'tid'), $vid, $last_string, 0, 10);
 
     $prefix = count($array) ? implode(', ', $array) .', ' : '';
 

@@ -60,6 +60,11 @@ function element_children($element) {
  */
 function drupal_get_form($form_id, &$form, $callback = NULL) {
   global $form_values, $form_submitted, $user, $form_button_counter;
+  static $saved_globals = array();
+
+  // Save globals in case of indirect recursive call
+  array_push($saved_globals, array($form_values, $form_submitted, $form_button_counter));
+
   $form_values = array();
   $form_submitted = FALSE;
   $form_button_counter = array(0, 0);
@@ -79,7 +84,7 @@ function drupal_get_form($form_id, &$form, $callback = NULL) {
     }
   }
   if (isset($form_id)) {
-    $form['form_id'] = array('#type' => 'hidden', '#value' => $form_id);
+    $form['form_id'] = array('#type' => 'hidden', '#value' => $form_id, '#id' => str_replace('_', '-', "edit-$form_id"));
   }
   if (!isset($form['#id'])) {
     $form['#id'] = $form_id;
@@ -140,11 +145,14 @@ function drupal_get_form($form_id, &$form, $callback = NULL) {
     }
   }
 
-  if (theme_get_function($form_id)) {
-    $form['#theme'] = $form_id;
-  }
-  elseif (theme_get_function($callback)) {
-    $form['#theme'] = $callback;
+  // Don't override #theme if someone already set it.
+  if (!isset($form['#theme'])) {
+    if (theme_get_function($form_id)) {
+      $form['#theme'] = $form_id;
+    }
+    elseif (theme_get_function($callback)) {
+      $form['#theme'] = $callback;
+    }
   }
 
   if (isset($form['#pre_render'])) {
@@ -155,7 +163,10 @@ function drupal_get_form($form_id, &$form, $callback = NULL) {
     }
   }
 
-  return form_render($form);
+  $output = form_render($form);
+  // Restore globals
+  list($form_values, $form_submitted, $form_button_counter) = array_pop($saved_globals);
+  return $output;
 }
 
 function drupal_validate_form($form_id, $form, $callback = NULL) {
@@ -226,13 +237,13 @@ function _form_validate($elements, $form_id = NULL) {
           foreach ($value as $v) {
             if (!isset($options[$v])) {
               form_error($elements, t('An illegal choice has been detected. Please contact the site administrator.'));
-              watchdog('form', t('Illegal choice %choice in %name element.', array('%choice' => theme('placeholder', check_plain($v)), '%name' => theme_placeholder(empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title'])), WATCHDOG_ERROR));
+              watchdog('form', t('Illegal choice %choice in %name element.', array('%choice' => theme('placeholder', check_plain($v)), '%name' => theme_placeholder(empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']))), WATCHDOG_ERROR);
             }
           }
         }
         elseif (!isset($options[$elements['#value']])) {
           form_error($elements, t('An illegal choice has been detected. Please contact the site administrator.'));
-          watchdog('form', t('Illegal choice %choice in %name element.', array('%choice' => theme_placeholder(check_plain($v)), '%name' => theme('placeholder', empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title'])), WATCHDOG_ERROR));
+          watchdog('form', t('Illegal choice %choice in %name element.', array('%choice' => theme_placeholder(check_plain($v)), '%name' => theme('placeholder', empty($elements['#title']) ? $elements['#parents'][0] : $elements['#title']))), WATCHDOG_ERROR);
         }
       }
     }
@@ -316,6 +327,9 @@ function form_error(&$element, $message = '') {
  */
 function form_builder($form_id, $form) {
   global $form_values, $form_submitted, $form_button_counter;
+
+  // Initialize as unprocessed.
+  $form['#processed'] = FALSE;
 
   /* Use element defaults */
   if ((!empty($form['#type'])) && ($info = _element_info($form['#type']))) {
@@ -878,7 +892,7 @@ function weight_value(&$form) {
 function expand_radios($element) {
   if (count($element['#options']) > 0) {
     foreach ($element['#options'] as $key => $choice) {
-      if (!$element[$key]) {
+      if (!isset($element[$key])) {
         $element[$key] = array('#type' => 'radio', '#title' => $choice, '#return_value' => $key, '#default_value' => $element['#default_value'], '#attributes' => $element['#attributes'], '#parents' => $element['#parents'], '#spawned' => TRUE);
       }
     }

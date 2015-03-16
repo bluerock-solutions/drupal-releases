@@ -260,7 +260,7 @@ function menu_get_local_tasks() {
  *   The menu ID of the menu item to retrieve.
  * @param $path
  *   The internal path of the menu item to retrieve. Defaults to NULL. Only
- *   used if no item can be found matching $mid.
+ *   used if $mid is not set.
  * @param $reset
  *   Optional flag that resets the static variable cache of the menu tree, if
  *   set to TRUE. Default is FALSE.
@@ -335,7 +335,7 @@ function menu_set_location($location) {
   foreach (array_reverse($location) as $item) {
     if (isset($_menu['path index'][$item['path']])) {
       $mid = $_menu['path index'][$item['path']];
-      if (isset ($_menu['visible'][$mid])) {
+      if (isset($_menu['visible'][$mid])) {
         // Splice in the breadcrumb at this location.
         if ($prev_id) {
           $_menu['items'][$prev_id]['pid'] = $mid;
@@ -534,7 +534,7 @@ function menu_get_active_breadcrumb() {
     return array();
   }
 
-  $links[] = l(t('Home'), '<front>');
+  $links[] = l(t('Home'), variable_get('site_frontpage', 'node'));
 
   $trail = _menu_get_active_trail();
   foreach ($trail as $mid) {
@@ -839,10 +839,11 @@ function menu_primary_links($start_level = 1, $pid = 0) {
   }
 
   $menu = menu_get_menu();
+  $links = array();
   if ($pid && is_array($menu['visible'][$pid]) && isset($menu['visible'][$pid]['children'])) {
     $count = 1;
     foreach ($menu['visible'][$pid]['children'] as $cid) {
-      $index = "$start_level-$count";
+      $index = "menu-$start_level-$count";
       if (menu_in_active_trail_in_submenu($cid, $pid)) {
         $index .= "-active";
       }
@@ -1226,7 +1227,9 @@ function _menu_append_contextual_items() {
       $mid = $_menu['path index'][$item['path']];
       if ($_menu['items'][$mid]['type'] & MENU_CREATED_BY_ADMIN) {
         $_menu['items'][$mid]['access'] = $item['access'];
-        $_menu['items'][$mid]['callback'] = $item['callback'];
+        if (isset($_menu['items'][$mid]['callback'])) {
+          $_menu['items'][$mid]['callback'] = $item['callback'];
+        }
         if (isset($_menu['items'][$mid]['callback arguments'])) {
           $_menu['items'][$mid]['callback arguments'] = $item['callback arguments'];
         }
@@ -1334,7 +1337,7 @@ function _menu_build_local_tasks($pid) {
 }
 
 /**
- * Returns TRUE if the is off-line for maintenance.
+ * Returns TRUE if the site is off-line for maintenance.
  */
 function _menu_site_is_offline() {
   // Check if site is set to off-line mode

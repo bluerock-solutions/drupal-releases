@@ -75,7 +75,7 @@ function aggregator_menu($may_cache) {
       'title' => t('list'),
       'type' => MENU_DEFAULT_LOCAL_TASK,
       'weight' => -10);
-      
+
     $items[] = array('path' => 'aggregator',
       'title' => t('news aggregator'),
       'callback' => 'aggregator_page_last',
@@ -100,7 +100,7 @@ function aggregator_menu($may_cache) {
       'callback' => 'aggregator_page_opml',
       'access' => $view,
       'type' => MENU_CALLBACK);
-      
+
     $result = db_query('SELECT title, cid FROM {aggregator_category} ORDER BY title');
     while ($category = db_fetch_array($result)) {
       $items[] = array('path' => 'aggregator/categories/'. $category['cid'],
@@ -705,7 +705,6 @@ function aggregator_refresh($feed) {
     case 301:
       $feed['url'] = $result->redirect_url;
       watchdog('aggregator', t('Updated URL for feed %title to %url.', array('%title' => theme('placeholder', $feed['title']), '%url' => theme('placeholder', $feed['url']))));
-      break;
 
     case 200:
     case 302:
@@ -1156,8 +1155,6 @@ function aggregator_page_sources() {
  * Menu callback; generate an RSS 0.92 feed of aggregator items or categories.
  */
 function aggregator_page_rss() {
-  global $base_url;
-
   // arg(2) is the passed cid, only select for that category
   $result = NULL;
   if (arg(2)) {
@@ -1191,10 +1188,10 @@ function aggregator_page_rss() {
 
   $output .= "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
   $output .= "<rss version=\"2.0\">\n";
-  $output .= format_rss_channel(variable_get('site_name', t('Drupal')) . ' ' . t('aggregator'), $base_url . '/' . url('aggregator' . $url), variable_get('site_name', t('Drupal')) . ' - ' . t('aggregated feeds') . $title, $items, 'en');
+  $output .= format_rss_channel(variable_get('site_name', t('Drupal')) . ' ' . t('aggregator'), url('aggregator' . $url, NULL, NULL, TRUE), variable_get('site_name', t('Drupal')) . ' - ' . t('aggregated feeds') . $title, $items, 'en');
   $output .= "</rss>\n";
 
-  drupal_set_header('Content-Type: text/xml; charset=utf-8');
+  drupal_set_header('Content-Type: application/rss+xml; charset=utf-8');
   print $output;
 }
 

@@ -459,7 +459,11 @@ function _locale_import_po($file, $lang, $mode) {
   }
 
   // Get strings from file (returns on failure after a partial import, or on success)
-  _locale_import_read_po($file, $mode, $lang);
+  $status = _locale_import_read_po($file, $mode, $lang);
+  if ($status === FALSE) {
+    // error messages are set in _locale_import_read_po
+    return FALSE;
+  }
 
   // Get status information on import process
   list($headerdone, $additions, $updates) = _locale_import_one_string('report', $mode);
@@ -635,7 +639,7 @@ function _locale_import_one_string($value, $mode, $lang = NULL) {
   }
   // Current string is the header information
   elseif ($value['msgid'] == '') {
-    $hdr = _locale_import_parse_header($value);
+    $hdr = _locale_import_parse_header($value['msgstr']);
 
     // Get the plural formula
     if ($hdr["Plural-Forms"] && $p = _locale_import_parse_plural_forms($hdr["Plural-Forms"], $file->filename)) {
@@ -792,7 +796,7 @@ function _locale_import_parse_plural_forms($pluralforms, $filename) {
   // Get PHP version of the plural formula
   $plural = _locale_import_parse_arithmetic($plural);
 
-  if ($plural) {
+  if ($plural !== FALSE) {
     return array($nplurals, $plural);
   }
   else {
@@ -1084,7 +1088,7 @@ function _locale_export_po($language) {
 
   // Generating Portable Object Template
   else {
-    $filename = variable_get('site_name', 'drupal') .'.pot';
+    $filename = 'drupal.pot';
     $header .= "# LANGUAGE translation of PROJECT\n";
     $header .= "# Copyright (c) YEAR NAME <EMAIL@ADDRESS>\n";
     $header .= "#\n";

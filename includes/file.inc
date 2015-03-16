@@ -28,7 +28,7 @@ define('FILE_EXISTS_ERROR', 2);
  */
 function file_create_url($path) {
   // Strip file_directory_path from $path. We only include relative paths in urls.
-  if (strpos($path, file_directory_path()) !== false) {
+  if (strpos($path, file_directory_path() . '/') === 0) {
     $path = trim(substr($path, strlen(file_directory_path())), '\\/');
   }
   switch (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC)) {
@@ -113,16 +113,16 @@ function file_check_directory(&$directory, $mode = 0, $form_item = NULL) {
   }
 
   if ((file_directory_path() == $directory || file_directory_temp() == $directory) && !is_file("$directory/.htaccess")) {
-    if (($fp = fopen("$directory/.htaccess", 'w')) && fputs($fp, 'SetHandler This_is_a_Drupal_security_line_do_not_remove')) {
+    $htaccess_lines = "SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006\nOptions None\n<IfModule mod_rewrite.c>\n  RewriteEngine off\n</IfModule>";
+    if (($fp = fopen("$directory/.htaccess", 'w')) && fputs($fp, $htaccess_lines)) {
       fclose($fp);
     }
     else {
-      $message = t("Security warning: Couldn't write .htaccess. Please create a .htaccess file in your %directory directory which contains the following line: <code>SetHandler This_is_a_Drupal_security_line_do_not_remove</code>", array('%directory' => $directory));
+      $message = t("Security warning: Couldn't write .htaccess file. Please create a .htaccess file in your %directory directory which contains the following lines: <code>%htaccess</code>", array('%directory' => theme('placeholder', $directory), '%htaccess' => '<br />'. str_replace("\n", '<br />', check_plain($htaccess_lines))));
       form_set_error($form_item, $message);
-      watchdog('file system', $message, WATCHDOG_ERROR);
+      watchdog('security', $message, WATCHDOG_ERROR);
     }
   }
-
 
   return true;
 }

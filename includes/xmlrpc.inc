@@ -345,7 +345,7 @@ EOD;
 
 function xmlrpc_error($code = NULL, $message = NULL) {
   static $xmlrpc_error;
-  if ($code) {
+  if (isset($code)) {
     $xmlrpc_error = new stdClass();
     $xmlrpc_error->is_error = TRUE;
     $xmlrpc_error->code = $code;
@@ -417,9 +417,9 @@ function xmlrpc_base64_get_xml($xmlrpc_base64) {
 }
 
 /**
- * Execute an XML remote procedural call. This is private function; call xmlrpc() 
+ * Execute an XML remote procedural call. This is private function; call xmlrpc()
  * in common.inc instead of this functino.
- * 
+ *
  * @return
  *   A $xmlrpc_message object if the call succeeded; FALSE if the call failed
  */
