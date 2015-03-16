@@ -103,7 +103,7 @@ function comment_help($section = "admin/help#comment") {
       $output = t("Here you can setup the <strong>initial</strong> vote value of a comment posted by each user role. This value is used before any other users vote on the comment.<br />Note: Blank entries are valued at zero");
       break;
     case 'admin/comment/search':
-      $output = t("Enter a simple pattern ( '*' maybe used as a wildcard match) to search for a comment.  For example, one may search for 'br' and Drupal might return 'bread brakers', 'our daily bread' and 'brenda'.");
+      $output = t("Enter a simple pattern ('*' may be used as a wildcard match) to search for a comment.  For example, one may search for 'br' and Drupal might return 'bread breakers', 'our daily bread' and 'brenda'.");
       break;
   }
   return $output;
@@ -904,7 +904,7 @@ function comment_admin_edit($id) {
     $form .= form_item(t("Author"), format_name($comment));
     $form .= form_textfield(t("Subject"), "subject", $comment->subject, 70, 128);
     $form .= form_textarea(t("Comment"), "comment", $comment->comment, 70, 15, filter_tips_short());
-    $form .= form_radios(t("Status"), "status", $comment->status, array("published", "not published"));
+    $form .= form_radios(t("Status"), "status", $comment->status, array(t("published"), t("not published")));
     $form .= form_hidden("cid", $id);
     $form .= form_submit(t("Submit"));
 
@@ -1239,7 +1239,7 @@ function comment_admin() {
 function theme_comment_form($edit, $title) {
   global $user;
 
-  $form .= "<a id=\"comment\"></a>\n";
+  $form .= "<a id=\"comment-form\"></a>\n";
 
   // name field:
   $form .= form_item(t("Your name"), format_name($user));
