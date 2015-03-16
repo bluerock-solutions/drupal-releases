@@ -113,7 +113,7 @@ function file_check_directory(&$directory, $mode = 0, $form_item = NULL) {
   }
 
   if ((file_directory_path() == $directory || file_directory_temp() == $directory) && !is_file("$directory/.htaccess")) {
-    $htaccess_lines = "SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006\nOptions None\n<IfModule mod_rewrite.c>\n  RewriteEngine off\n</IfModule>";
+    $htaccess_lines = "SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006\nOptions None\nOptions +FollowSymLinks";
     if (($fp = fopen("$directory/.htaccess", 'w')) && fputs($fp, $htaccess_lines)) {
       fclose($fp);
     }
@@ -319,7 +319,7 @@ function file_copy(&$source, $dest = 0, $replace = FILE_EXISTS_RENAME) {
   if ($basename === false) {
     $source = is_object($source) ? $source->filepath : $source;
     drupal_set_message(t('The selected file %file could not be uploaded, because the destination %directory is not properly configured.', array('%file' => theme('placeholder', $source), '%directory' => theme('placeholder', $dest))), 'error');
-    watchdog('file system', t('The selected file %file could not not be uploaded, because the destination %directory could not be found, or because its permissions do not allow the file to be written.', array('%file' => theme('placeholder', $source), '%directory' => theme('placeholder', $dest))), WATCHDOG_ERROR);
+    watchdog('file system', t('The selected file %file could not be uploaded, because the destination %directory could not be found, or because its permissions do not allow the file to be written.', array('%file' => theme('placeholder', $source), '%directory' => theme('placeholder', $dest))), WATCHDOG_ERROR);
     return 0;
   }
 
@@ -712,4 +712,40 @@ function file_directory_path() {
   return variable_get('file_directory_path', 'files');
 }
 
+/**
+ * Helper function for file_upload_max_size().
+ */
+function _file_convert_to_mb($val){
+  $val = trim($val);
+  $last = strtolower($val[strlen($val) - 1]);
+  switch($last) {
+    // The 'G' modifier is available since PHP 5.1.0
+    case 'g':
+      $size = $val * 1024;
+      break;
+    case 'k':
+      $size = $val / 1024;
+      break;
+    default:
+      $size = (int) $val;
+  }
+  return $size;
+}
 
+/**
+ * Determine the maximum file upload size by querying the PHP settings.
+ *
+ * @return
+ * A file size limit in MB based on the PHP upload_max_filesize and post_max_size
+ */
+function file_upload_max_size() {
+  static $max_size = -1;
+
+  if ($max_size < 0) {
+    $upload_max = _file_convert_to_mb(ini_get('upload_max_filesize'));
+    // sanity check- a single upload should not be more than 50% the size limit of the total post
+    $post_max = _file_convert_to_mb(ini_get('post_max_size')) / 2;
+    $max_size = ($upload_max < $post_max) ? $upload_max : $post_max;
+  }
+  return $max_size;
+}

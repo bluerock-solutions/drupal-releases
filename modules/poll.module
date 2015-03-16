@@ -292,7 +292,8 @@ function poll_teaser($node) {
  * Generates the voting form for a poll.
  */
 function poll_view_voting(&$node, $teaser, $page, $block) {
-  if ($_POST['op'] == t('Vote')) {
+  // Check for a valid form token to protect against cross site request forgeries.
+  if ($_POST['op'] == t('Vote') && drupal_valid_token($_POST['edit']['form_token'], 'poll_view_voting', TRUE)) {
     poll_vote($node);
   }
 
@@ -301,7 +302,7 @@ function poll_view_voting(&$node, $teaser, $page, $block) {
     foreach ($node->choice as $i => $choice) {
       $list[$i] = check_plain($choice['chtext']);
     }
-    $form['choice'] = array('#type' => 'radios', '#title' => $page ? '' : check_plain($node->title), '#default_value' => -1, '#options' => $list);
+    $form['choice'] = array('#type' => 'radios', '#title' => $block ? check_plain($node->title) : '', '#default_value' => -1, '#options' => $list);
   }
   $form['nid'] = array('#type' => 'hidden', '#value' => $node->nid);
   $form['vote'] = array('#type' => 'submit', '#value' => t('Vote'));
@@ -421,6 +422,7 @@ function poll_vote(&$node) {
 
         $node->allowvotes = FALSE;
         $node->choice[$choice]['chvotes']++;
+        cache_clear_all();
         drupal_set_message(t('Your vote was recorded.'));
       }
       else {

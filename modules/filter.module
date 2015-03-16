@@ -296,7 +296,6 @@ function filter_admin_overview() {
   $formats = filter_formats();
   $error = false;
 
-  $rows = array();
   foreach ($formats as $id => $format) {
     $roles = array();
     foreach (user_roles() as $rid => $name) {
@@ -305,7 +304,6 @@ function filter_admin_overview() {
         $roles[] = $name;
       }
     }
-    $row = array();
     $default = ($id == variable_get('filter_default_format', 1));
     $options[$id] = '';
     $form[$format->name]['id'] = array('#value' => $id);
@@ -327,6 +325,7 @@ function filter_admin_overview_submit($form_id, $form_values) {
 }
 
 function theme_filter_admin_overview($form) {
+  $rows = array();
   foreach ($form as $name => $element) {
     if (isset($element['roles']) && is_array($element['roles'])) {
       $rows[] = array(
@@ -1349,15 +1348,20 @@ function filter_xss_bad_protocol($string, $decode = TRUE) {
   if ($decode) {
     $string = decode_entities($string);
   }
-  // Remove soft hyphen
-  $string = str_replace(chr(194) . chr(173), '', $string);
-  // Strip protocols
-
+  // Iteratively remove any invalid protocol found.
   do {
     $before = $string;
     $colonpos = strpos($string, ':');
     if ($colonpos > 0) {
+      // We found a colon, possibly a protocol. Verify.
       $protocol = substr($string, 0, $colonpos);
+      // If a colon is preceded by a slash, question mark or hash, it cannot
+      // possibly be part of the URL scheme. This must be a relative URL,
+      // which inherits the (safe) protocol of the base document.
+      if (preg_match('![/?#]!', $protocol)) {
+        break;
+      }
+      // Check if this is a disallowed protocol
       if (!isset($allowed_protocols[$protocol])) {
         $string = substr($string, $colonpos + 1);
       }

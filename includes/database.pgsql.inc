@@ -31,15 +31,24 @@ function db_connect($url) {
   }
 
   $url = parse_url($url);
+  $conn_string = '';
 
   // Decode url-encoded information in the db connection string
-  $url['user'] = urldecode($url['user']);
-  $url['pass'] = urldecode($url['pass']);
-  $url['host'] = urldecode($url['host']);
-  $url['path'] = urldecode($url['path']);
-
-  $conn_string = ' user='. $url['user'] .' dbname='. substr($url['path'], 1) .' password='. $url['pass'] . ' host=' . $url['host'];
-  $conn_string .= isset($url['port']) ? ' port=' . $url['port'] : '';
+  if (isset($url['user'])) {
+    $conn_string .= ' user=' . urldecode($url['user']);
+  }
+  if (isset($url['pass'])) {
+    $conn_string .= ' password=' . urldecode($url['pass']);
+  }
+  if (isset($url['host'])) {
+    $conn_string .= ' host=' . urldecode($url['host']);
+  }
+  if (isset($url['path'])) {
+    $conn_string .= ' dbname=' . substr(urldecode($url['path']), 1);
+  }
+  if (isset($url['port'])) {
+    $conn_string .= ' port=' . urldecode($url['port']);
+  }
 
   // pg_last_error() does not return a useful error message for database
   // connection errors. We must turn on error tracking to get at a good error
@@ -50,6 +59,7 @@ function db_connect($url) {
   $connection = @pg_connect($conn_string);
   if (!$connection) {
     drupal_maintenance_theme();
+    drupal_set_header('HTTP/1.1 503 Service Unavailable');
     drupal_set_title('Unable to connect to database');
     print theme('maintenance_page', '<p>This either means that the database information in your <code>settings.php</code> file is incorrect or we can\'t contact the PostgreSQL database server. This could mean your hosting provider\'s database server is down.</p>
 <p>The PostgreSQL error was: '. theme('placeholder', decode_entities($php_errormsg)) .'</p>

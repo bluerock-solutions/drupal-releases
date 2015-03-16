@@ -128,6 +128,9 @@ function drupal_clear_path_cache() {
 
 /**
  * Set an HTTP response header for the current page.
+ *
+ * Note: when sending a Content-Type header, always include a 'charset' type
+ * too. This is necessary to avoid security bugs (e.g. UTF-7 XSS).
  */
 function drupal_set_header($header = NULL) {
   // We use an array to guarantee there are no leading or trailing delimiters.
@@ -209,7 +212,7 @@ function drupal_get_destination() {
   }
   else {
     // Use $_REQUEST here to retrieve the original path.
-    $path = isset($_REQUEST['q']) ? $_REQUEST['q'] : '';
+    $path = isset($_REQUEST['q']) ? drupal_get_path_alias($_REQUEST['q']) : '';
     $query = drupal_query_string_encode($_GET, array('q'));
     if ($query != '') {
       $path .= '?'. $query;
@@ -242,7 +245,7 @@ function drupal_get_destination() {
  * statement in your menu callback.
  *
  * @param $path
- *   A Drupal path.
+ *   A Drupal path or a full URL.
  * @param $query
  *   The query string component, if any.
  * @param $fragment
@@ -524,6 +527,7 @@ function fix_gpc_magic() {
     array_walk($_POST, '_fix_gpc_magic');
     array_walk($_COOKIE, '_fix_gpc_magic');
     array_walk($_REQUEST, '_fix_gpc_magic');
+    array_walk($_FILES, '_fix_gpc_magic');
     $fixed = true;
   }
 }
@@ -646,7 +650,7 @@ function valid_email_address($mail) {
  *   TRUE if the URL is in a valid format.
  */
 function valid_url($url, $absolute = FALSE) {
-  $allowed_characters = '[a-z0-9\/:_\-_\.\?\$,~=#&%\+]';
+  $allowed_characters = '[a-z0-9\/:_\-_\.\?\$,;~=#&%\+]';
   if ($absolute) {
     return preg_match("/^(http|https|ftp):\/\/". $allowed_characters ."+$/i", $url);
   }
@@ -764,7 +768,7 @@ function format_xml_elements($array) {
         }
 
         if ($value['value'] != '') {
-          $output .= '>'. (is_array($value['value']) ? format_xml_tags($value['value']) : check_plain($value['value'])) .'</'. $value['key'] .">\n";
+          $output .= '>'. (is_array($value['value']) ? format_xml_elements($value['value']) : check_plain($value['value'])) .'</'. $value['key'] .">\n";
         }
         else {
           $output .= " />\n";
@@ -772,7 +776,7 @@ function format_xml_elements($array) {
       }
     }
     else {
-      $output .= ' <'. $key .'>'. (is_array($value) ? format_xml_tags($value) : check_plain($value)) ."</$key>\n";
+      $output .= ' <'. $key .'>'. (is_array($value) ? format_xml_elements($value) : check_plain($value)) ."</$key>\n";
     }
   }
   return $output;
@@ -976,10 +980,11 @@ function url($path = NULL, $query = NULL, $fragment = NULL, $absolute = FALSE) {
   }
 
   // Return an external link if $path contains an allowed absolute URL.
-  // Only call the slow filter_xss_bad_protocol if $path contains a ':'.
-  if (strpos($path, ':') !== FALSE && filter_xss_bad_protocol($path, FALSE) == check_plain($path)) {
+  // Only call the slow filter_xss_bad_protocol if $path contains a ':' before any / ? or #.
+  $colonpos = strpos($path, ':');
+  if ($colonpos !== FALSE && !preg_match('![/?#]!', substr($path, 0, $colonpos)) && filter_xss_bad_protocol($path, FALSE) == check_plain($path)) {
     // Split off the fragment
-    if (strpos($path, '#')) {
+    if (strpos($path, '#') !== FALSE) {
       list($path, $old_fragment) = explode('#', $path, 2);
       if (isset($old_fragment) && !isset($fragment)) {
         $fragment = '#'. $old_fragment;
@@ -987,7 +992,7 @@ function url($path = NULL, $query = NULL, $fragment = NULL, $absolute = FALSE) {
     }
     // Append the query
     if (isset($query)) {
-      $path .= (strpos($path, '?') ? '&' : '?') . $query;
+      $path .= (strpos($path, '?') !== FALSE ? '&' : '?') . $query;
     }
     // Reassemble
     return $path . $fragment;
@@ -1318,8 +1323,51 @@ function drupal_urlencode($text) {
                        urlencode($text));
   }
   else {
-    return str_replace('%2F', '/', urlencode($text));    
+    return str_replace('%2F', '/', urlencode($text));
   }
+}
+
+
+/**
+ * Ensure the private key variable used to generate tokens is set.
+ *
+ * @return
+ *   The private key
+ */
+function drupal_get_private_key() {
+  if (!($key = variable_get('drupal_private_key', 0))) {
+    $key = mt_rand();
+    variable_set('drupal_private_key', $key);
+  }
+  return $key;
+}
+
+/**
+ * Generate a token based on $value, the current user session and private key.
+ *
+ * @param $value
+ *   An additional value to base the token on
+ */
+function drupal_get_token($value = '') {
+  $private_key = drupal_get_private_key();
+  return md5(session_id() . $value . $private_key);
+}
+
+/**
+ * Validate a token based on $value, the current user session and private key.
+ *
+ * @param $token
+ *   The token to be validated.
+ * @param $value
+ *   An additional value to base the token on.
+ * @param $skip_anonymous
+ *   Set to true to skip token validation for anonymous users.
+ * @return
+ *   True for a valid token, false for an invalid token. When $skip_anonymous is true, the return value will always be true for anonymous users.
+ */
+function drupal_valid_token($token, $value = '', $skip_anonymous = FALSE) {
+  global $user;
+  return (($skip_anonymous && $user->uid == 0) || ($token == md5(session_id() . $value . variable_get('drupal_private_key', ''))));
 }
 
 /**

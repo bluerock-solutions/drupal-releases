@@ -251,7 +251,6 @@ function book_form(&$node) {
   $form['log'] = array(
     '#type' => 'textarea',
     '#title' => t('Log message'),
-    '#default_value' => $node->log,
     '#weight' => 5,
     '#description' => t('An explanation of the additions or updates being made to help other authors understand your motivations.'),
   );
@@ -296,7 +295,6 @@ function book_outline($nid) {
   );
   $form['log'] = array('#type' => 'textarea',
     '#title' => t('Log message'),
-    '#default_value' => $node->log,
     '#description' => t('An explanation to help other authors understand your motivations to put this post into the book.'),
   );
 
@@ -348,11 +346,13 @@ function book_outline_submit($form_id, $form_values) {
  * representing the path in the book tree from the root to the
  * parent of the given node.
  *
- * @param node - a book node object for which to compute the path
+ * @param $node
+ *   a book node object for which to compute the path
  *
- * @return - an array of book node objects representing the path of
- * nodes root to parent of the given node. Returns an empty array if
- * the node does not exist or is not part of a book hierarchy.
+ * @return
+ *   an array of book node objects representing the path nodes root to
+ *   parent of the given node. Returns an empty array if the node does
+ *   not exist or is not part of a book hierarchy.
  *
  */
 function book_location($node, $nodes = array()) {
@@ -365,7 +365,17 @@ function book_location($node, $nodes = array()) {
 }
 
 /**
- * Accumulates the nodes up to the root of the book from the given node in the $nodes array.
+ * Given a node, this function returns an array of 'book node' objects
+ * representing the path in the book tree from the given node down to
+ * the last sibling of it.
+ *
+ * @param $node
+ *   a book node object where the path starts
+ *
+ * @return
+ *   an array of book node objects representing the path nodes from the
+ *   given node. Returns an empty array if the node does not exist or
+ *   is not part of a book hierarchy or there are no siblings.
  */
 function book_location_down($node, $nodes = array()) {
   $last_direct_child = db_fetch_object(db_query(db_rewrite_sql('SELECT n.nid, n.title, b.parent, b.weight FROM {node} n INNER JOIN {book} b ON n.vid = b.vid WHERE n.status = 1 AND b.parent = %d ORDER BY b.weight DESC, n.title DESC'), $node->nid));
@@ -849,7 +859,7 @@ function _book_admin_table_tree($node, $depth) {
     ),
   );
 
-  $children = db_query(db_rewrite_sql('SELECT n.nid, b.weight FROM {node} n INNER JOIN {book} b ON n.vid = b.vid WHERE b.parent = %d ORDER BY b.weight, n.title'), $node->nid);
+  $children = db_query(db_rewrite_sql('SELECT n.nid, n.title, b.weight FROM {node} n INNER JOIN {book} b ON n.vid = b.vid WHERE b.parent = %d ORDER BY b.weight, n.title'), $node->nid);
   while ($child = db_fetch_object($children)) {
     $form = array_merge($form, _book_admin_table_tree(node_load($child->nid), $depth + 1));
   }
