@@ -96,7 +96,6 @@ function taxonomy_link($type, $node = NULL) {
  * @return
  *   An internal Drupal path.
  */
-
 function taxonomy_term_path($term) {
   $vocabulary = taxonomy_vocabulary_load($term->vid);
   if ($vocabulary->module != 'taxonomy' && $path = module_invoke($vocabulary->module, 'term_path', $term)) {
@@ -1226,7 +1225,7 @@ function taxonomy_rss_item($node) {
   $output = array();
   foreach ($node->taxonomy as $term) {
     $output[] = array('key'   => 'category',
-                      'value' => check_plain($term->name),
+                      'value' => $term->name,
                       'attributes' => array('domain' => url('taxonomy/term/'. $term->tid, array('absolute' => TRUE))));
   }
   return $output;
