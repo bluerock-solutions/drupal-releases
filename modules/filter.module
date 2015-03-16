@@ -618,7 +618,7 @@ function filter_format_allowcache($format) {
 function filter_list_format($format) {
   static $filters = array();
 
-  if (!is_array($filters[$format])) {
+  if (!isset($filters[$format])) {
     $filters[$format] = array();
     $result = db_query("SELECT * FROM {filters} WHERE format = %d ORDER BY weight ASC", $format);
     while ($filter = db_fetch_object($result)) {
@@ -994,7 +994,7 @@ function _filter_autop($text) {
       $chunk = preg_replace('|(?<!<br />)\s*\n|', "<br />\n", $chunk); // make line breaks
       $chunk = preg_replace('!(</?(?:table|tr|td|th|div|dl|dd|dt|ul|ol|li|pre|select|form|blockquote|p|h[1-6])[^>]*>)\s*<br />!', "$1", $chunk);
       $chunk = preg_replace('!<br />(\s*</?(?:p|li|div|th|pre|td|ul|ol)>)!', '$1', $chunk);
-      $chunk = preg_replace('/&([^#])(?![a-z]{1,8};)/', '&amp;$1', $chunk);
+      $chunk = preg_replace('/&([^#])(?![A-Za-z0-9]{0,7};)/', '&amp;$1', $chunk);
     }
     $output .= $chunk;
   }

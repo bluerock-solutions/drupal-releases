@@ -206,7 +206,7 @@ function drupal_not_found() {
 
   $path = drupal_get_normal_path(variable_get('site_404', ''));
   $status = MENU_NOT_FOUND;
-  if ($path) {
+  if ($path  && $path != $_GET['q']) {
     menu_set_active_item($path);
     $status = menu_execute_active_handler();
   }
@@ -226,7 +226,7 @@ function drupal_access_denied() {
 
   $path = drupal_get_normal_path(variable_get('site_403', ''));
   $status = MENU_NOT_FOUND;
-  if ($path) {
+  if ($path  && $path != $_GET['q']) {
     menu_set_active_item($path);
     $status = menu_execute_active_handler();
   }
@@ -884,7 +884,7 @@ function format_name($object) {
       $output = l($name, 'user/'. $object->uid, array('title' => t('View user profile.')));
     }
     else {
-      $output = $name;
+      $output = check_plain($name);
     }
   }
   else if ($object->name) {
@@ -893,10 +893,10 @@ function format_name($object) {
     // aggregator modules). This clause enables modules to display
     // the true author of the content.
     if ($object->homepage) {
-      $output = '<a href="'. $object->homepage .'">'. $object->name .'</a>';
+      $output = '<a href="'. check_url($object->homepage) .'">'. check_plain($object->name) .'</a>';
     }
     else {
-      $output = $object->name;
+      $output = check_plain($object->name);
     }
 
     $output .= ' ('. t('not verified') .')';
@@ -1666,15 +1666,18 @@ function truncate_utf8($string, $len, $wordsafe = FALSE) {
     return $string;
   }
   if ($wordsafe) {
+    $end = $len;
     while (($string[--$len] != ' ') && ($len > 0)) {};
+    if ($len == 0) {
+      $len = $end;
+    }
   }
   if ((ord($string[$len]) < 0x80) || (ord($string[$len]) >= 0xC0)) {
     return substr($string, 0, $len);
   }
-  while (ord($string[--$len]) < 0xC0) {};
+  while (--$len >= 0 && ord($string[$len]) >= 0x80 && ord($string[$len]) < 0xC0) {};
   return substr($string, 0, $len);
 }
-
 /**
  * Encodes MIME/HTTP header values that contain non-ASCII, UTF-8 encoded
  * characters.
@@ -1691,7 +1694,7 @@ function truncate_utf8($string, $len, $wordsafe = FALSE) {
  *   have to be changed to \r\n or \r.
  */
 function mime_header_encode($string) {
-  if (!preg_match('/^[\x20-\x7E]*$/', $string)) {
+  if (preg_match('/[^\x20-\x7E]/', $string)) {
     $chunk_size = 47; // floor((75 - strlen("=?UTF-8?B??=")) * 0.75);
     $len = strlen($string);
     $output = '';
