@@ -267,9 +267,8 @@ function drupal_get_destination() {
  * 'user login'-block in a sidebar. The function drupal_get_destination()
  * can be used to help set the destination URL.
  *
- * It is advised to use drupal_goto() instead of PHP's header(), because
- * drupal_goto() will append the user's session ID to the URI when PHP is
- * compiled with "--enable-trans-sid".
+ * Drupal will ensure that messages set by drupal_set_message() and other
+ * session data are written to the database before the user is redirected.
  *
  * This function ends the request; use it rather than a print theme('page')
  * statement in your menu callback.
@@ -302,9 +301,15 @@ function drupal_goto($path = '', $query = NULL, $fragment = NULL, $http_response
   }
 
   $url = url($path, $query, $fragment, TRUE);
+  // Remove newlines from the URL to avoid header injection attacks.
+  $url = str_replace(array("\n", "\r"), '', $url);
 
   // Before the redirect, allow modules to react to the end of the page request.
   module_invoke_all('exit', $url);
+
+  // Even though session_write_close() is registered as a shutdown function, we
+  // need all session data written to the database before redirecting.
+  session_write_close();
 
   header('Location: '. $url, TRUE, $http_response_code);
 
@@ -1511,6 +1516,8 @@ function drupal_build_css_cache($types, $filename) {
       foreach ($type as $file => $cache) {
         if ($cache) {
           $contents = file_get_contents($file);
+          // Remove multiple charset declarations for standards compliance (and fixing Safari problems)
+          $contents = preg_replace('/^@charset\s+[\'"](\S*)\b[\'"];/i', '', $contents);
           // Return the path to where this CSS file originated from, stripping off the name of the file at the end of the path.
           $path = base_path() . substr($file, 0, strrpos($file, '/')) .'/';
           // Wraps all @import arguments in url().

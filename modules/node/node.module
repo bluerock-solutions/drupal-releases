@@ -1312,42 +1312,48 @@ function node_node_operations() {
  * Callback function for admin mass publishing nodes.
  */
 function node_operations_publish($nodes) {
-  db_query('UPDATE {node} SET status = 1 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET status = 1 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
  * Callback function for admin mass unpublishing nodes.
  */
 function node_operations_unpublish($nodes) {
-  db_query('UPDATE {node} SET status = 0 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET status = 0 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
  * Callback function for admin mass promoting nodes.
  */
 function node_operations_promote($nodes) {
-  db_query('UPDATE {node} SET status = 1, promote = 1 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET status = 1, promote = 1 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
  * Callback function for admin mass demoting nodes.
  */
 function node_operations_demote($nodes) {
-  db_query('UPDATE {node} SET promote = 0 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET promote = 0 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
  * Callback function for admin mass editing nodes to be sticky.
  */
 function node_operations_sticky($nodes) {
-  db_query('UPDATE {node} SET status = 1, sticky = 1 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET status = 1, sticky = 1 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
  * Callback function for admin mass editing nodes to remove stickiness.
  */
 function node_operations_unsticky($nodes) {
-  db_query('UPDATE {node} SET sticky = 0 WHERE nid IN(%s)', implode(',', $nodes));
+  $placeholders = implode(',', array_fill(0, count($nodes), '%d'));
+  db_query('UPDATE {node} SET sticky = 0 WHERE nid IN('. $placeholders .')', $nodes);
 }
 
 /**
@@ -2517,6 +2523,9 @@ function node_update_index() {
     // Build the node body.
     $node = node_build_content($node, FALSE, FALSE);
     $node->body = drupal_render($node->content);
+
+    // Allow modules to modify the fully-built node.
+    node_invoke_nodeapi($node, 'alter');
 
     $text = '<h1>'. check_plain($node->title) .'</h1>'. $node->body;
 

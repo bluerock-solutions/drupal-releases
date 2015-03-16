@@ -723,7 +723,7 @@ function comment_save($edit) {
         }
 
         // Add the comment to database.
-        $status = user_access('post comments without approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED;
+        $edit['status'] = user_access('post comments without approval') ? COMMENT_PUBLISHED : COMMENT_NOT_PUBLISHED;
         $roles = variable_get('comment_roles', array());
         $score = 0;
 
@@ -784,7 +784,7 @@ function comment_save($edit) {
           $edit['name'] = $user->name;
         }
 
-        db_query("INSERT INTO {comments} (cid, nid, pid, uid, subject, comment, format, hostname, timestamp, status, score, users, thread, name, mail, homepage) VALUES (%d, %d, %d, %d, '%s', '%s', %d, '%s', %d, %d, %d, '%s', '%s', '%s', '%s', '%s')", $edit['cid'], $edit['nid'], $edit['pid'], $edit['uid'], $edit['subject'], $edit['comment'], $edit['format'], $_SERVER['REMOTE_ADDR'], $edit['timestamp'], $status, $score, $users, $thread, $edit['name'], $edit['mail'], $edit['homepage']);
+        db_query("INSERT INTO {comments} (cid, nid, pid, uid, subject, comment, format, hostname, timestamp, status, score, users, thread, name, mail, homepage) VALUES (%d, %d, %d, %d, '%s', '%s', %d, '%s', %d, %d, %d, '%s', '%s', '%s', '%s', '%s')", $edit['cid'], $edit['nid'], $edit['pid'], $edit['uid'], $edit['subject'], $edit['comment'], $edit['format'], $_SERVER['REMOTE_ADDR'], $edit['timestamp'], $edit['status'], $score, $users, $thread, $edit['name'], $edit['mail'], $edit['homepage']);
 
         _comment_update_node_statistics($edit['nid']);
 
@@ -800,7 +800,7 @@ function comment_save($edit) {
 
       // Explain the approval queue if necessary, and then
       // redirect the user to the node he's commenting on.
-      if ($status == COMMENT_NOT_PUBLISHED) {
+      if ($edit['status'] == COMMENT_NOT_PUBLISHED) {
         drupal_set_message(t('Your comment has been queued for moderation by site administrators and will be published after approval.'));
       }
       return $edit['cid'];
@@ -1055,8 +1055,9 @@ function comment_render($node, $cid = 0) {
       }
     }
 
-    // If enabled, show new comment form.
-    if (user_access('post comments') && node_comment_mode($nid) == COMMENT_NODE_READ_WRITE && (variable_get('comment_form_location', COMMENT_FORM_SEPARATE_PAGE) == COMMENT_FORM_BELOW)) {
+    // If enabled, show new comment form if it's not already being displayed.
+    $reply = arg(0) == 'comment' && arg(1) == 'reply';
+    if (user_access('post comments') && node_comment_mode($nid) == COMMENT_NODE_READ_WRITE && (variable_get('comment_form_location', COMMENT_FORM_SEPARATE_PAGE) == COMMENT_FORM_BELOW) && !$reply) {
       $output .= comment_form_box(array('nid' => $nid), t('Post new comment'));
     }
 
@@ -1231,7 +1232,7 @@ function comment_admin_overview_submit($form_id, $form_values) {
     }
     cache_clear_all();
     drupal_set_message(t('The update has been performed.'));
-    drupal_goto('admin/content/comment');
+    return 'admin/content/comment';
   }
 }
 
@@ -1627,7 +1628,8 @@ function comment_form_add_preview($form, $edit) {
     $output .= theme('comment_view', $comment);
   }
   else {
-    $form['#suffix'] = node_view(node_load($edit['nid']));
+    $suffix = empty($form['#suffix']) ? '' : $form['#suffix'];
+    $form['#suffix'] = $suffix . node_view(node_load($edit['nid']));
     $edit['pid'] = 0;
   }
 
