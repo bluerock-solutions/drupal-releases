@@ -78,7 +78,7 @@ function _unicode_check() {
  */
 function unicode_requirements() {
   // Ensure translations don't break at install time
-  $t = function_exists('install_main') ? 'st' : 't';
+  $t = get_t();
 
   $libraries = array(
     UNICODE_SINGLEBYTE => $t('Standard PHP'),
@@ -441,6 +441,7 @@ function drupal_substr($text, $start, $length = NULL) {
   else {
     $strlen = strlen($text);
     // Find the starting byte offset
+    $bytes = 0;
     if ($start > 0) {
       // Count all the continuation bytes from the start until we have found
       // $start characters
