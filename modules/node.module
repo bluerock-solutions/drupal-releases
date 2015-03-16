@@ -1159,9 +1159,14 @@ function node_feed($nodes = 0, $channel = array()) {
     $items .= format_rss_item($item->title, $link, $item->teaser, $extra);
   }
 
+  $slogan = variable_get('site_slogan', '');
+  $spacer = ' - ';
+  if (empty($slogan)) {
+    $spacer = '';
+  }
   $channel_defaults = array(
     'version'     => '2.0',
-    'title'       => variable_get('site_name', 'drupal') .' - '. variable_get('site_slogan', ''),
+    'title'       => variable_get('site_name', 'drupal') . $spacer . $slogan,
     'link'        => $base_url,
     'description' => variable_get('site_mission', ''),
     'language'    => $locale
@@ -1511,7 +1516,7 @@ function theme_node_preview($node) {
   $output = '<div class="preview">';
   if ($node->teaser && $node->teaser != $node->body) {
     $output .= '<h3>'. t('Preview trimmed version') .'</h3>';
-    $output .= node_view($node, 1, FALSE, 0);
+    $output .= node_view(clone($node), 1, FALSE, 0);
     $output .= '<p><em>'. t('The trimmed version of your post shows what your post looks like when promoted to the main page or when exported for syndication. You can insert the delimiter "&lt;!--break--&gt;" (without the quotes) to fine-tune where your post gets split.') .'</em></p>';
     $output .= '<h3>'. t('Preview full version') .'</h3>';
     $output .= node_view($node, 0, FALSE, 0);
