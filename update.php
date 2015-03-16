@@ -1,19 +1,21 @@
 <?php
 // $Id$
-/*
-** USAGE:
-**
-** - Point your browser to "http://www.site.com/update.php" and follow
-**   the instructions.
-**
-** - If you are not logged in as administrator, you will need to modify the
-**   statement below. Change the 1 into a 0 to disable the access check.
-**   After finishing the upgrade, open this file and change the 0 back into
-**   a 1!
-*/
+
+/**
+ * @file
+ * Administrative page for handling updates from one Drupal version to another.
+ *
+ * Point your browser to "http://www.site.com/update.php" and follow the
+ * instructions.
+ *
+ * If you are not logged in as administrator, you will need to modify the access
+ * check statement below. Change the TRUE into a FALSE to disable the access
+ * check. After finishing the upgrade, be sure to open this file and change the
+ * FALSE back into a TRUE!
+ */
 
 // Disable access checking?
-$access_check = 1;
+$access_check = TRUE;
 
 if (!ini_get("safe_mode")) {
   set_time_limit(180);
@@ -45,7 +47,7 @@ function update_page_header($title) {
       </style>
 EOF;
   $output .= "</head><body>";
-  $output .= "<div id=\"logo\"><a href=\"http://drupal.org/\"><img src=\"misc/druplicon-small.gif\" alt=\"Druplicon - Drupal logo\" title=\"Druplicon - Drupal logo\" /></a></div>";
+  $output .= "<div id=\"logo\"><a href=\"http://drupal.org/\"><img src=\"misc/druplicon-small.png\" alt=\"Druplicon - Drupal logo\" title=\"Druplicon - Drupal logo\" /></a></div>";
   $output .= "<div id=\"update\"><h1>$title</h1>";
   return $output;
 }
@@ -90,7 +92,7 @@ function update_page() {
       $dates[$i] = "No updates available";
 
       // make update form and output it.
-      $form .= form_select("Perform updates from", "start", (isset($selected) ? $selected : -1), $dates, "This defaults to the first available update since the last update you performed.");
+      $form = form_select("Perform updates from", "start", (isset($selected) ? $selected : -1), $dates, "This defaults to the first available update since the last update you performed.");
       $form .= form_submit("Update");
       print update_page_header("Drupal database update");
       print form($form);
@@ -109,7 +111,47 @@ function update_info() {
   print "</ol>";
   print "Notes:";
   print "<ol>";
-  print " <li>If you <strong>upgrade from Drupal 4.3.x</strong>, you have will need to add the <code>bootstrap</code> and <code>throttle</code> fields to the <code>system</code> table manually before upgrading. To add the required fields, issue the following SQL commands:
+  print " <li>If you <strong>upgrade from Drupal 4.4.x</strong>, you will need to create the <code>users_roles</code> and <code>locales_meta</code> tables manually before upgrading. To create these tables, issue the following SQL commands:
+
+  <p>MySQL specific example:
+  <pre>
+  CREATE TABLE users_roles (
+    uid int(10) unsigned NOT NULL default '0',
+    rid int(10) unsigned NOT NULL default '0',
+    PRIMARY KEY (uid, rid)
+  );
+  CREATE TABLE locales_meta (
+    locale varchar(12) NOT NULL default '',
+    name varchar(64) NOT NULL default '',
+    enabled int(2) NOT NULL default '0',
+    isdefault int(2) NOT NULL default '0',
+    plurals int(1) NOT NULL default '0',
+    formula varchar(128) NOT NULL default '',
+    PRIMARY KEY  (locale)
+  );
+  </pre>
+  </p>
+
+  <p>PostgreSQL specific example:
+  <pre>
+  CREATE TABLE users_roles (
+    uid integer NOT NULL default '0',
+    rid integer NOT NULL default '0',
+    PRIMARY KEY (uid, rid)
+  );
+  CREATE TABLE locales_meta (
+    locale varchar(12) NOT NULL default '',
+    name varchar(64) NOT NULL default '',
+    enabled int4 NOT NULL default '0',
+    isdefault int4 NOT NULL default '0',
+    plurals int4 NOT NULL default '0',
+    formula varchar(128) NOT NULL default '',
+    PRIMARY KEY  (locale)
+  );
+  </pre>
+  </p>
+  </li>";
+  print " <li>If you <strong>upgrade from Drupal 4.3.x</strong>, you will need to add the <code>bootstrap</code> and <code>throttle</code> fields to the <code>system</code> table manually before upgrading. To add the required fields, issue the following SQL commands:
 
   <p>MySQL specific example:
   <pre>
@@ -128,7 +170,11 @@ function update_info() {
   </pre>
   </p>
   </li>";
-  print " <li>If you <strong>upgrade from Drupal 4.2.0</strong>, you have to create the <code>sessions</code> table manually before upgrading.  After you created the table, you'll want to log in and immediately continue the upgrade.  To create the <code>sessions</code> table, issue the following SQL command (MySQL specific example):<pre>CREATE TABLE sessions (
+  print " <li>If you <strong>upgrade from Drupal 4.2.0</strong>, you will need to create the <code>sessions</code> table manually before upgrading.  After creating the table, you will want to log in and immediately continue the upgrade.  To create the <code>sessions</code> table, issue the following SQL command:
+
+  <p>MySQL specific example:
+  <pre>
+  CREATE TABLE sessions (
   uid int(10) unsigned NOT NULL,
   sid varchar(32) NOT NULL default '',
   hostname varchar(128) NOT NULL default '',
@@ -136,7 +182,10 @@ function update_info() {
   session text,
   KEY uid (uid),
   KEY sid (sid(4)),
-  KEY timestamp (timestamp));</pre></li>";
+  KEY timestamp (timestamp));
+  </pre>
+  </p>
+  </li>";
   print "</ol>";
   print update_page_footer();
 }
