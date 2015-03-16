@@ -1,3 +1,7 @@
+Drupal 4.6.7, 2006-05-24
+------------------------
+- fixed critical SQL issue, see SA-2006-005
+
 Drupal 4.6.6, 2006-03-13
 ------------------------
 - fixed bugs, including 4 security vulnerabilities.
@@ -65,6 +69,10 @@ Drupal 4.6.0, 2005-04-15
     * improved performance of the node pages.
 - documentation:
     * improved and extended PHPDoc/Doxygen comments.
+
+Drupal 4.5.8, 2006-03-13
+------------------------
+- fixed bugs, including 3 security vulnerabilities.
 
 Drupal 4.5.7, 2005-12-12
 ------------------------

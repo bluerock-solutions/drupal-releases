@@ -105,6 +105,17 @@ function file_check_directory(&$directory, $mode = 0, $form_item = NULL) {
     }
   }
 
+  if ((variable_get('file_directory_temp', FILE_DIRECTORY_TEMP) == $directory || variable_get('file_directory_path', 'files') == $directory) && !is_file("$directory/.htaccess")) {
+    if (($fp = fopen("$directory/.htaccess", 'w')) && fputs($fp, 'SetHandler This_is_a_Drupal_security_line_do_not_remove')) {
+      fclose($fp);
+    }
+    else {
+      $message = t("Security warning: Couldn't write .htaccess. Please create a .htaccess file in your %directory directory which contains the following line: <code>SetHandler This_is_a_Drupal_security_line_do_not_remove</code>", array('%directory' => $directory));
+      form_set_error($form_item, $message);
+      watchdog('file system', $message, WATCHDOG_ERROR);
+    }
+  }
+
   return true;
 }
 
@@ -144,16 +155,8 @@ function file_check_upload($source) {
     $file = new StdClass();
     $file->filename = trim(basename($_FILES["edit"]["name"][$source]), '.');
     $file->filepath = $_FILES["edit"]["tmp_name"][$source];
+    $file->filemime = $_FILES["edit"]["type"][$source];
 
-    if (function_exists('mime_content_type')) {
-      $file->filemime = mime_content_type($file->filepath);
-      if ($file->filemime != $_FILES["edit"]["type"][$source]) {
-        watchdog('file', t('For %file the system thinks its MIME type is %detected while the user has given %given for MIME type', array('%file' => theme('placeholder', $file->filepath), '%detected' => theme('placeholder', $file->filemime), '%given' => theme('placeholder', $_FILES['edit']['type'][$source]))));
-      }
-    }
-    else {
-      $file->filemime = $_FILES["edit"]["type"][$source];
-    }
     if (((substr($file->filemime, 0, 5) == 'text/' || strpos($file->filemime, 'javascript')) && (substr($file->filename, -4) != '.txt')) || preg_match('/\.(php|pl|py|cgi|asp)$/i', $file->filename)) {
       $file->filemime = 'text/plain';
       rename($file->filepath, $file->filepath .'.txt');
