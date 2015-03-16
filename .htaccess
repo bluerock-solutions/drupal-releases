@@ -12,15 +12,11 @@
 Options -Indexes
 Options FollowSymLinks
 
+# Customized server error messages:
+ErrorDocument 404 /index.php
+
 # Set the default handler to index.php:
 DirectoryIndex index.php
-
-# Customized server error messages:
-ErrorDocument 400 /error.php
-ErrorDocument 402 /error.php
-ErrorDocument 403 /error.php
-ErrorDocument 404 /error.php
-ErrorDocument 500 /error.php
 
 # Overload PHP variables:
 <IfModule mod_php4.c>
