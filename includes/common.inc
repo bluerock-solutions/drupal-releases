@@ -502,7 +502,7 @@ function error_handler($errno, $message, $filename, $line) {
     $entry = $types[$errno] .': '. $message .' in '. $filename .' on line '. $line .'.';
 
     // Force display of error messages in update.php
-    if (variable_get('error_level', 1) == 1 || strstr($_SERVER['PHP_SELF'], 'update.php')) {
+    if (variable_get('error_level', 1) == 1 || strstr($_SERVER['SCRIPT_NAME'], 'update.php')) {
       drupal_set_message($entry, 'error');
     }
 
@@ -1301,14 +1301,17 @@ function drupal_to_js($var) {
                               array('\r', '\n', '\x3c', '\x3e', '\x26'),
                               addslashes($var)) .'"';
     case 'array':
-      if (array_keys($var) === range(0, sizeof($var) - 1)) {
+      // Arrays in JSON can't be associative. If the array is empty or if it
+      // has sequential whole number keys starting with 0, it's not associative
+      // so we can go ahead and convert it as an array.
+      if (empty($var) || array_keys($var) === range(0, sizeof($var) - 1)) {
         $output = array();
         foreach($var as $v) {
           $output[] = drupal_to_js($v);
         }
         return '[ '. implode(', ', $output) .' ]';
       }
-      // Fall through
+      // Otherwise, fall through to convert the array as an object.
     case 'object':
       $output = array();
       foreach ($var as $k => $v) {
@@ -1330,17 +1333,19 @@ function drupal_to_js($var) {
  * Notes:
  * - For esthetic reasons, we do not escape slashes. This also avoids a 'feature'
  *   in Apache where it 404s on any path containing '%2F'.
- * - mod_rewrite's unescapes %-encoded ampersands and hashes when clean URLs
- *   are used, which are interpreted as delimiters by PHP. These characters are
- *   double escaped so PHP will still see the encoded version.
+ * - mod_rewrite unescapes %-encoded ampersands, hashes, and slashes when clean
+ *   URLs are used, which are interpreted as delimiters by PHP. These
+ *   characters are double escaped so PHP will still see the encoded version.
+ * - With clean URLs, Apache changes '//' to '/', so every second slash is
+ *   double escaped.
  *
  * @param $text
  *   String to encode
  */
 function drupal_urlencode($text) {
   if (variable_get('clean_url', '0')) {
-    return str_replace(array('%2F', '%26', '%23'),
-                       array('/', '%2526', '%2523'),
+    return str_replace(array('%2F', '%26', '%23', '//'),
+                       array('/', '%2526', '%2523', '/%252F'),
                        urlencode($text));
   }
   else {

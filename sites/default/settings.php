@@ -131,17 +131,29 @@ ini_set('session.use_trans_sid',    0);
 ini_set('url_rewriter.tags',        '');
 
 /**
- * We try to set the correct cookie domain. If you are experiencing problems
- * try commenting out the code below or specifying the cookie domain by hand.
+ * We try to set the correct cookie domain.
  */
 if (isset($_SERVER['HTTP_HOST'])) {
   $domain = '.'. preg_replace('`^www.`', '', $_SERVER['HTTP_HOST']);
   // Per RFC 2109, cookie domains must contain at least one dot other than the
   // first. For hosts such as 'localhost', we don't set a cookie domain.
   if (count(explode('.', $domain)) > 2) {
-    ini_set('session.cookie_domain', $domain);
+    // We need to use escaping because $_SERVER['HTTP_HOST'] can be modified
+    // by a visitor.
+    ini_set('session.cookie_domain', check_plain($domain));
   }
 }
+
+/**
+ * On some sites, multiple domains or subdomains may point to the same site.
+ * For instance, example.com may redirect to foo.example.com. In that case,
+ * the browser may confuse the cookies between the two domains, resulting in
+ * an inability to log in. In that case, uncomment the line below and set
+ * it to the more generic domain name. For instance, .example.com is more
+ * generic than .foo.example.com. Remember the leading period on the domain
+ * name, even if you wouldn't type it in your browser.
+ */
+#ini_set('session.cookie_domain', '.example.com');
 
 /**
  * Variable overrides:
