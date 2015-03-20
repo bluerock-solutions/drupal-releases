@@ -1,8 +1,8 @@
 This respoitory contains tagged releases of Drupal imported from http://git.drupal.org/project/drupal.git.
 
-The release versions are on the 'vanilla' branch and each one is tagged as 'vanilla/<drupal version number>'.
+The release versions are on the 'vanilla' branch and each one is tagged as 'vanilla/*drupal version number*'.
 
-The submodule deployment versions with no sites directory are on the 'no_sites' branch and each one is tagged as 'no_sites/<drupal version number>'.
+The submodule deployment versions with no sites directory are on the 'no_sites' branch and each one is tagged as 'no_sites/*drupal version number*'.
 
 #####To add to a project as a submodule:
 
