@@ -8,7 +8,7 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 
 * `git submodule add -b no_sites https://github.com/bluerock-solutions/drupal-releases.git drupal`
 * `ln -nfsT ../sites drupal/sites`
-* cp -a drupal/example.sites sites
+* `cp -a drupal/example.sites sites`
 
 #####To update Drupal in a project:
 
@@ -31,7 +31,7 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 * `git checkout no_sites`
 * `git merge vanilla/$vdrupal --no-commit`
 * Ensure no merge conflicts
-* `git diff vanilla/$vdrupal --stat` # Should show 3 lines added to .gitignore and all sites/* should nbe renamed to example.sites/*
+* `git diff vanilla/$vdrupal --stat` # Should show 3 lines added to .gitignore and all sites/* should be renamed to example.sites/*
 * `ls -d *sites*` # Should show example.sites and NOT sites
 * `git commit --no-edit`
 * `git tag no_sites/$vdrupal`
