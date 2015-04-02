@@ -12,11 +12,18 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 
 #####To update Drupal in a project:
 
-* `git submodule update --remote drupal`
+* Either this (simple update to latest no_sites but will remove your sites symlink)
+    * `git submodule update --remote drupal`
+* Or this
+    * `cd drupal`
+    * `git fetch`
+    * `git checkout no_sites` # Can replace no_sites with nosites/x.yz if you want a specific version
+    * `cd -`
 * Commit update
 
 #####To import a new upstream release:
 
+* `git clone --config core.autocrlf=false THIS_REPO` # Clone and disable autocrlf so line endings stay the same as upstream
 * `git remote add upstream http://git.drupal.org/project/drupal.git`
 * `git fetch upstream`
 * `git checkout vanilla`
@@ -26,12 +33,12 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 * `git checkout $vdrupal -- .` # Pull files from next Drupal version
 * `git add --all`
 * `git commit -m "$(echo -e "Drupal $vdrupal\n\n$(git log $vdrupal -n 1)")"`
-* `git diff $vdrupal --stat` # Check every thing matches original commit - should show no output
+* `git diff $vdrupal --numstat` # Check every thing matches original commit - should show no output
 * `git tag vanilla/$vdrupal`
 * `git checkout no_sites`
 * `git merge vanilla/$vdrupal --no-commit`
 * Ensure no merge conflicts
-* `git diff vanilla/$vdrupal --stat` # Should show 3 lines added to .gitignore and all sites/* should be renamed to example.sites/*
+* `git diff vanilla/$vdrupal --numstat` # Should show 3 lines added to .gitignore and all sites/* should be renamed to example.sites/*
 * `ls -d *sites*` # Should show example.sites and NOT sites
 * `git commit --no-edit`
 * `git tag no_sites/$vdrupal`
