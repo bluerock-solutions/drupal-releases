@@ -25,8 +25,10 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 
 If you've not cloned the repository before, start here...
 
-* `git clone --config core.autocrlf=false THIS_REPO` # Clone and disable autocrlf so line endings stay the same as upstream
-* `git remote add upstream http://git.drupal.org/project/drupal.git`
+|   	| Command 							  	| Comment 									|
+|---	|---									|---										|
+| 1.	| `git fetch upstream`							| Clone and disable autocrlf so line endings stay the same as upstream.		|
+| 2. 	| `git remote add upstream http://git.drupal.org/project/drupal.git`	| Add drupal core as an upstream.						|
 
 Otherwise, start here. Probably wouldn't hurt to do a `git reset --hard HEAD` before you crack on.
 
