@@ -23,23 +23,30 @@ The submodule deployment versions with no sites directory are on the 'no_sites' 
 
 #####To import a new upstream release:
 
+If you've not cloned the repository before, start here...
+
 * `git clone --config core.autocrlf=false THIS_REPO` # Clone and disable autocrlf so line endings stay the same as upstream
 * `git remote add upstream http://git.drupal.org/project/drupal.git`
-* `git fetch upstream`
-* `git checkout vanilla`
-* delete (use rm) * .gitignore .htaccess (need to remove all file & dirs EXCEPT .git)
-* `ls -A` # should show .git only
-* `export vdrupal=x.yz` # set to next Drupal version - should point to the drupal repo tag for the next release
-* `git checkout $vdrupal -- .` # Pull files from next Drupal version
-* `git add --all`
-* `git commit -m "$(echo -e "Drupal $vdrupal\n\n$(git log $vdrupal -n 1)")"`
-* `git diff $vdrupal --numstat` # Check every thing matches original commit - should show no output
-* `git tag vanilla/$vdrupal`
-* `git checkout no_sites`
-* `git merge vanilla/$vdrupal --no-commit`
-* Ensure no merge conflicts
-* `git diff vanilla/$vdrupal --numstat` # Should show 3 lines added to .gitignore and all sites/* should be renamed to example.sites/*
-* `ls -d *sites*` # Should show example.sites and NOT sites
-* `git commit --no-edit`
-* `git tag no_sites/$vdrupal`
-* `git push origin vanilla no_sites vanilla/$vdrupal no_sites/$vdrupal`
+
+Otherwise, start here. Probably wouldn't hurt to do a `git reset --hard HEAD` before you crack on.
+
+|   	| Command 					  	| Comment 											|
+|---	|---							|---												|
+| 1.	| `git fetch upstream`					| Fetches the latest changes from drupal core.							|
+| 2.	| `git checkout vanilla`				| Checkout the vanilla branch (where we store the clean drupal core).				|
+| 3.	| See Comment. No way I'm putting an rm command here!	| delete (use rm) * .gitignore .htaccess (need to remove all file & dirs EXCEPT .git). 		|
+| 4. 	| `ls -A`						| Directory listing, should show nothing buy .git.						|
+| 5.	| `export vdrupal=x.yz`					| Where x.yz is the new Drupal version. Convenience variable.					|
+| 6.	| `git checkout $vdrupal -- .`				| Pull the files from next Drupal version, discarding anything in the local copy.		|
+| 7.	| `git add --all`					| Stage everything.										|
+| 8. 	| `git commit -m "$(echo -e "Drupal $vdrupal\n\n$(git log $vdrupal -n 1)")"`	| Commit with a message referencing the Drupal version / commit.	|
+| 9.	| `git diff $vdrupal --numstat`				| Check every thing matches original commit - should show no output.				|
+| 10.	| `git tag vanilla/$vdrupal`				| Tag the vanilla commit.									|
+| 11.	| `git checkout no_sites`				| Switch to our no_sites branch (the one without the "sites" directory.				|
+| 12.	| `git merge vanilla/$vdrupal --no-commit`		| Merge the vanilla branch in, ensuring **no merge conflicts**.					|
+| 13.	| `git diff vanilla/$vdrupal --numstat`			| Should show 3 lines added to .gitignore and all sites/* should be renamed to example.sites/*.	|
+| 14.	| `ls -d *sites*`					| Should show example.sites and **NOT** sites.							|
+| 15.	| `git commit --no-edit`				| Commit all the things.									|
+| 16.	| `git tag no_sites/$vdrupal`				| Tag the no_sites commit.									|
+| 17.	| `git push origin vanilla no_sites vanilla/$vdrupal no_sites/$vdrupal` | Push it back to github							|
+
